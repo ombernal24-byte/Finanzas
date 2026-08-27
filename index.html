@@ -508,6 +508,17 @@ function totIngTx(){return txns().filter(t=>t.tp==='Ingreso').reduce((s,t)=>s+t.
 function cuotaDia(){const d=new Date(),dias=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();return dispReal()/dias;}
 function ritmo(){const d=new Date(),dias=new Date(d.getFullYear(),d.getMonth()+1,0).getDate()-d.getDate();if(dias<=0)return 0;return Math.max(0,dispReal()-totGas())/dias;}
 
+function pn(v){
+  const s=String(v).trim();
+  if(!s)return 0;
+  // Con coma: coma=decimal, puntos=miles  ej: "28,5"  "1.500.000,50"
+  if(s.includes(','))return parseFloat(s.replace(/\./g,'').replace(',','.'))||0;
+  // Sin coma: si hay 1 punto con ≤2 dígitos después, es decimal  ej: "28.5"
+  const pts=s.split('.');
+  if(pts.length===2&&pts[1].length<=2)return parseFloat(s)||0;
+  // Varios puntos o 3 dígitos tras el punto = separadores de miles  ej: "15.000.000"
+  return parseFloat(s.replace(/\./g,''))||0;
+}
 function fmt(n){if(!n&&n!==0)return'$0';const r=Math.round(n);return'$'+Math.abs(r).toLocaleString('es-CO')+(r<0?' (negativo)':'');}
 function fmtD(s){const d=new Date(s+'T00:00:00');return d.toLocaleDateString('es-CO',{day:'numeric',month:'short'});}
 function mesNom(m){const[y,mo]=m.split('-');return new Date(+y,+mo-1,1).toLocaleDateString('es-CO',{month:'long',year:'numeric'});}
@@ -761,7 +772,7 @@ function renderCfgBody(){
     case'deu':{
       const qA=cfgDraft.quincenas?.activo;
       const qSel=(val,i,fn)=>qA?`<div style="display:flex;gap:4px;flex-shrink:0;margin-bottom:4px"><button onclick="${fn}(${i},'q1')" style="padding:3px 8px;border-radius:8px;border:1px solid ${val==='q1'?'var(--blue)':'var(--chip-b)'};background:${val==='q1'?'rgba(10,132,255,.2)':'var(--chip-bg)'};color:${val==='q1'?'var(--blue)':'var(--text2)'};font-size:11px;font-weight:700;cursor:pointer">Q1</button><button onclick="${fn}(${i},'q2')" style="padding:3px 8px;border-radius:8px;border:1px solid ${val==='q2'?'var(--purple)':'var(--chip-b)'};background:${val==='q2'?'rgba(191,90,242,.2)':'var(--chip-bg)'};color:${val==='q2'?'var(--purple)':'var(--text2)'};font-size:11px;font-weight:700;cursor:pointer">Q2</button></div>`:'';
-      el.innerHTML=`${qA?`<div style="font-size:11px;color:var(--text2);margin-bottom:10px">Marca cada cuota en qué quincena se paga</div>`:''}${(cfgDraft.deudas||[]).map((x,i)=>`<div style="background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:12px;margin-bottom:10px">${qSel((x.q||'q1'),i,'cfgDeuQ')}<div class="cfg-row" style="margin-bottom:8px"><input class="finput cfg-nm" placeholder="Nombre deuda" value="${esc(x.n)}" oninput="cfgDraft.deudas[${i}].n=this.value"><button class="cfg-del" onclick="cfgDel('deudas',${i})">×</button></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><div><div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Cuota/mes</div><input class="finput" type="number" inputmode="decimal" placeholder="0" value="${x.c||''}" oninput="cfgDraft.deudas[${i}].c=+this.value||0"></div><div><div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Saldo actual</div><input class="finput" type="number" inputmode="decimal" placeholder="0" value="${x.saldo||''}" oninput="cfgDraft.deudas[${i}].saldo=+this.value||0"></div><div><div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Tasa EA %</div><input class="finput" type="number" inputmode="decimal" placeholder="0" value="${x.tasa||''}" oninput="cfgDraft.deudas[${i}].tasa=+this.value||0"></div></div></div>`).join('')}<button class="btn-add" onclick="cfgAdd('deudas')">+ Agregar deuda</button><div style="font-size:11px;color:var(--text2);margin-top:10px">💡 Con saldo y tasa puedes ver la tabla de amortización desde el inicio</div>`;
+      el.innerHTML=`${qA?`<div style="font-size:11px;color:var(--text2);margin-bottom:10px">Marca cada cuota en qué quincena se paga</div>`:''}${(cfgDraft.deudas||[]).map((x,i)=>`<div style="background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:12px;margin-bottom:10px">${qSel((x.q||'q1'),i,'cfgDeuQ')}<div class="cfg-row" style="margin-bottom:8px"><input class="finput cfg-nm" placeholder="Nombre deuda" value="${esc(x.n)}" oninput="cfgDraft.deudas[${i}].n=this.value"><button class="cfg-del" onclick="cfgDel('deudas',${i})">×</button></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><div><div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Cuota/mes</div><input class="finput" type="text" inputmode="decimal" placeholder="0" value="${x.c||''}" oninput="cfgDraft.deudas[${i}].c=pn(this.value)"></div><div><div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Saldo actual</div><input class="finput" type="text" inputmode="decimal" placeholder="0" value="${x.saldo||''}" oninput="cfgDraft.deudas[${i}].saldo=pn(this.value)"></div><div><div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Tasa EA %</div><input class="finput" type="text" inputmode="decimal" placeholder="ej: 28,5" value="${x.tasa||''}" oninput="cfgDraft.deudas[${i}].tasa=pn(this.value)"></div></div></div>`).join('')}<button class="btn-add" onclick="cfgAdd('deudas')">+ Agregar deuda</button><div style="font-size:11px;color:var(--text2);margin-top:10px">💡 Con saldo y tasa puedes ver la tabla de amortización desde el inicio</div>`;
       break;}
     case'rec':
       el.innerHTML=rCfgRec();break;
@@ -1018,7 +1029,7 @@ function renderAmortBody(){
     <div style="background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:14px;margin-bottom:16px">
       <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:10px">Simulador de abono extra</div>
       <div style="display:flex;gap:8px;align-items:center">
-        <input class="finput" id="amort-extra" type="number" inputmode="decimal" placeholder="$ Abono extra por mes" value="${amortExtra||''}" style="flex:1;margin:0">
+        <input class="finput" id="amort-extra" type="text" inputmode="decimal" placeholder="$ Abono extra por mes" value="${amortExtra||''}" style="flex:1;margin:0">
         <button onclick="amortSim()" style="padding:11px 16px;border-radius:12px;border:none;background:var(--blue);color:#fff;font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0">Simular</button>
       </div>
       ${amortExtra>0?`<div style="margin-top:10px;padding:10px 12px;background:rgba(48,209,88,.12);border:1px solid rgba(48,209,88,.25);border-radius:10px;font-size:13px;color:var(--green)">✅ Con ${fmt(amortExtra)}/mes extra: terminas <strong>${savedMes} mes${savedMes!==1?'es':''} antes</strong> y ahorras <strong>${fmt(savedInt)}</strong> en intereses</div>`:''}
@@ -1032,7 +1043,7 @@ function renderAmortBody(){
       </table>
     </div>`;
 }
-function amortSim(){amortExtra=+document.getElementById('amort-extra').value||0;renderAmortBody();}
+function amortSim(){amortExtra=pn(document.getElementById('amort-extra').value);renderAmortBody();}
 
 // ─── GASTOS RECURRENTES ────────────────────────────────────────────────────────
 function checkRecurrentes(){
