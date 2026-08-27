@@ -103,9 +103,10 @@ body{
   transition:transform .15s,box-shadow .15s;
 }
 #fab:active{transform:scale(.92);box-shadow:0 2px 14px rgba(10,132,255,0.4)}
-.pg-head{padding:22px 20px 6px;display:flex;align-items:center;justify-content:space-between}
-.pg-title{font-size:28px;font-weight:800;letter-spacing:-.6px}
-.pg-sub{font-size:13px;color:var(--text2);margin-top:2px}
+.pg-head{padding:22px 20px 10px;display:flex;align-items:center;justify-content:space-between}
+.pg-title{font-size:32px;font-weight:900;letter-spacing:-.8px}
+.pg-title span{background:linear-gradient(135deg,var(--blue),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.pg-sub{font-size:13px;color:var(--text2);margin-top:3px;font-weight:500}
 .card{
   background:var(--card);border:1px solid var(--card-b);border-radius:20px;
   backdrop-filter:blur(28px) saturate(160%);-webkit-backdrop-filter:blur(28px) saturate(160%);
@@ -277,7 +278,10 @@ body.modal-open #content{overflow:hidden}
 <div class="overlay" id="m-tx">
   <div class="sheet">
     <div class="handle"></div>
-    <div class="modal-ttl" id="tx-ttl">Nueva Transacción</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div class="modal-ttl" id="tx-ttl" style="margin:0">Nueva Transacción</div>
+      <button onclick="closeModal('m-tx')" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--chip-bg);color:var(--text2);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
+    </div>
     <div class="type-tgl">
       <button class="type-btn tg-gasto" onclick="setType('Gasto')" id="btn-g">↑ Gasto</button>
       <button class="type-btn" onclick="setType('Ingreso')" id="btn-i">↓ Ingreso</button>
@@ -306,13 +310,17 @@ body.modal-open #content{overflow:hidden}
 <div class="overlay" id="m-cfg">
   <div class="sheet">
     <div class="handle"></div>
-    <div class="modal-ttl">Configuración</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div class="modal-ttl" style="margin:0">Configuración</div>
+      <button onclick="closeModal('m-cfg')" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--chip-bg);color:var(--text2);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
+    </div>
     <div class="cfg-tabs">
       <button class="cfg-tab on" onclick="cfgTab('ing')">Ingresos</button>
       <button class="cfg-tab" onclick="cfgTab('fij')">Gastos Fijos</button>
       <button class="cfg-tab" onclick="cfgTab('deu')">Deudas</button>
       <button class="cfg-tab" onclick="cfgTab('pre')">Presupuesto</button>
       <button class="cfg-tab" onclick="cfgTab('qui')" style="border-color:rgba(191,90,242,.4)">💜 Quincenas</button>
+      <button class="cfg-tab" onclick="cfgTab('cat')">✏️ Categorías</button>
     </div>
     <div id="cfg-body"></div>
     <button class="btn-main" onclick="saveCfg()" style="margin-top:16px">Guardar</button>
@@ -330,7 +338,7 @@ body.modal-open #content{overflow:hidden}
 
 <script>
 const SK='finanzas_v2';
-const CATS=[
+const DEF_CATS=[
   {k:'transporte',       l:'Transporte/Gasolina',    ic:'🚗',col:'#FF9F0A'},
   {k:'alimentacionMkt',  l:'Alimentación-Mercado',   ic:'🛒',col:'#30D158'},
   {k:'alimentacionRst',  l:'Alimentación-Rest.',     ic:'🍽️',col:'#FF6B35'},
@@ -342,6 +350,7 @@ const CATS=[
   {k:'personal',         l:'Personal/Hogar',         ic:'🧴',col:'#32ADE6'},
   {k:'otro',             l:'Otro',                   ic:'📌',col:'#8E8E93'},
 ];
+function CATS(){return S.cats&&S.cats.length?S.cats:DEF_CATS;}
 
 function defState(){
   return{
@@ -352,7 +361,7 @@ function defState(){
       presup:{transporte:0,alimentacionMkt:0,alimentacionRst:0,tarjeta:0,ahorro:0,entretenimiento:0,ropa:0,mascotas:0,personal:0},
       quincenas:{activo:false,q1:0,q2:0}
     },
-    meses:{},archivos:{},lastMk:mk()
+    meses:{},archivos:{},cats:[],lastMk:mk()
   };
 }
 
@@ -361,7 +370,7 @@ let S=defState();
 function mk(d){const x=d||new Date();return`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}`;}
 
 function load(){
-  try{const r=localStorage.getItem(SK);if(r){const p=JSON.parse(r);S={...defState(),...p};S.config={...defState().config,...p.config};S.config.presup={...defState().config.presup,...(p.config?.presup||{})};if(!('mascotas' in S.config.presup))S.config.presup.mascotas=0;if(!('personal' in S.config.presup))S.config.presup.personal=0;S.config.quincenas={...defState().config.quincenas,...(p.config?.quincenas||{})};}}catch(e){}
+  try{const r=localStorage.getItem(SK);if(r){const p=JSON.parse(r);S={...defState(),...p};S.config={...defState().config,...p.config};S.config.presup={...defState().config.presup,...(p.config?.presup||{})};if(!('mascotas' in S.config.presup))S.config.presup.mascotas=0;if(!('personal' in S.config.presup))S.config.presup.personal=0;S.config.quincenas={...defState().config.quincenas,...(p.config?.quincenas||{})};if(!S.cats||!S.cats.length)S.cats=DEF_CATS.map(c=>({...c}));}}catch(e){}
 }
 
 function save(){try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}}
@@ -379,7 +388,7 @@ function checkArchive(){
 function calcSnap(m,txns){
   const ing=txns.filter(t=>t.tp==='Ingreso').reduce((s,t)=>s+t.mo,0);
   const gas=txns.filter(t=>t.tp==='Gasto').reduce((s,t)=>s+t.mo,0);
-  const byCat={};CATS.forEach(c=>{byCat[c.k]=txns.filter(t=>t.tp==='Gasto'&&t.cat===c.k).reduce((s,t)=>s+t.mo,0);});
+  const byCat={};CATS().forEach(c=>{byCat[c.k]=txns.filter(t=>t.tp==='Gasto'&&t.cat===c.k).reduce((s,t)=>s+t.mo,0);});
   return{ing,gas,byCat};
 }
 
@@ -467,7 +476,7 @@ function rDash(){
   const nPct=ing>0?nec/ing*100:0,dPct=ing>0?des/ing*100:0,aPct=ing>0?aho/ing*100:0;
   const donut=rDonut();const dc=disp>=0?'var(--green)':'var(--red)';
   return`
-    <div class="pg-head"><div><div class="pg-title">Finanzas</div><div class="pg-sub">${mesNom(mk())}</div></div><button class="icon-btn" onclick="openCfg()">⚙</button></div>
+    <div class="pg-head"><div><div class="pg-title">💰 <span>Finanzas</span></div><div class="pg-sub">${mesNom(mk())}</div></div><button class="icon-btn" onclick="openCfg()">⚙</button></div>
     <div class="card" style="background:linear-gradient(135deg,rgba(10,132,255,.13),rgba(48,209,88,.06))">
       <div class="card-ttl">Disponible Real (mensual)</div>
       <div style="font-size:38px;font-weight:800;letter-spacing:-1px;font-variant-numeric:tabular-nums;color:${dc}">${fmt(disp)}</div>
@@ -502,7 +511,7 @@ function cssVar(n){return getComputedStyle(document.documentElement).getProperty
 
 function rDonut(){
   const gastos=txns().filter(t=>t.tp==='Gasto');if(!gastos.length)return'';
-  const data=CATS.map(c=>({...c,mo:gastos.filter(t=>t.cat===c.k).reduce((s,t)=>s+t.mo,0)})).filter(d=>d.mo>0);
+  const data=CATS().map(c=>({...c,mo:gastos.filter(t=>t.cat===c.k).reduce((s,t)=>s+t.mo,0)})).filter(d=>d.mo>0);
   if(!data.length)return'';
   const total=data.reduce((s,d)=>s+d.mo,0);
   const sz=108,r=37,cx=sz/2,cy=sz/2,circ=2*Math.PI*r;
@@ -522,7 +531,7 @@ function rGastos(){
 }
 
 function rTxItem(t,del){
-  const cat=CATS.find(c=>c.k===t.cat);const isG=t.tp==='Gasto';
+  const cat=CATS().find(c=>c.k===t.cat);const isG=t.tp==='Gasto';
   const col=isG?(cat?.col||'var(--red)'):'var(--green)';const ico=isG?(cat?.ic||'💸'):'💵';const sign=isG?'−':'+';
   return`<div class="tx-item"><div class="tx-ico" style="background:${col}22">${ico}</div><div class="tx-info"><div class="tx-name">${esc(t.desc||'Sin descripción')}</div><div class="tx-meta">${fmtD(t.dt)} · ${isG?(cat?.l||'Otro'):'Ingreso'}</div></div><div style="display:flex;align-items:center;gap:4px"><div class="tx-amt" style="color:${col}">${sign}${fmt(t.mo)}</div>${del?`<button class="tx-del" onclick="delTx('${t.id}')" title="Eliminar">×</button>`:''}</div></div>`;
 }
@@ -535,7 +544,7 @@ function rPresup(){
       <div class="sum-row"><div class="sum-lbl">Total Presupuestado</div><div class="sum-val">${fmt(totPre())}</div></div>
       <div class="sum-row"><div class="sum-lbl">Por Asignar</div><div class="sum-val" style="color:${porAsig()>=0?'var(--green)':'var(--red)'}">${fmt(porAsig())}</div></div>
     </div>
-    <div class="card"><div class="card-ttl">Por Categoría</div>${CATS.filter(c=>c.k!=='otro').map(c=>{const pre=+pr[c.k]||0,gas=gastoCat(c.k);const pct=pre>0?Math.min(100,gas/pre*100):0;const over=gas>pre&&pre>0;return`<div class="prog-wrap"><div class="prog-head"><div class="prog-name">${c.ic} ${c.l}</div><div class="prog-amt" style="color:${over?'var(--red)':'var(--text2)'}">${fmt(gas)} ${pre>0?`/ ${fmt(pre)}`:'/ Sin límite'}</div></div>${pre>0?`<div class="prog-bg"><div class="prog-fill" style="width:${pct}%;background:${over?'var(--red)':c.col}"></div></div>`:''}</div>`;}).join('')}</div>`;
+    <div class="card"><div class="card-ttl">Por Categoría</div>${CATS().filter(c=>c.k!=='otro').map(c=>{const pre=+pr[c.k]||0,gas=gastoCat(c.k);const pct=pre>0?Math.min(100,gas/pre*100):0;const over=gas>pre&&pre>0;return`<div class="prog-wrap"><div class="prog-head"><div class="prog-name">${c.ic} ${c.l}</div><div class="prog-amt" style="color:${over?'var(--red)':'var(--text2)'}">${fmt(gas)} ${pre>0?`/ ${fmt(pre)}`:'/ Sin límite'}</div></div>${pre>0?`<div class="prog-bg"><div class="prog-fill" style="width:${pct}%;background:${over?'var(--red)':c.col}"></div></div>`:''}</div>`;}).join('')}</div>`;
 }
 
 function rHist(){
@@ -548,7 +557,7 @@ function rHist(){
 function rMiniBar(s){
   if(!s.byCat)return'';const entries=Object.entries(s.byCat).filter(([,v])=>v>0);if(!entries.length)return'';
   const tot=entries.reduce((a,[,v])=>a+v,0);
-  return`<div style="display:flex;gap:2px;height:4px;border-radius:2px;overflow:hidden">${entries.map(([k,v])=>{const c=CATS.find(x=>x.k===k);return`<div style="flex:${(v/tot*100).toFixed(1)};background:${c?.col||'#888'};min-width:3px"></div>`;}).join('')}</div>`;
+  return`<div style="display:flex;gap:2px;height:4px;border-radius:2px;overflow:hidden">${entries.map(([k,v])=>{const c=CATS().find(x=>x.k===k);return`<div style="flex:${(v/tot*100).toFixed(1)};background:${c?.col||'#888'};min-width:3px"></div>`;}).join('')}</div>`;
 }
 
 function drawChart(){
@@ -601,7 +610,7 @@ function updTypeBtns(){
 
 function renderChips(){
   const el=document.getElementById('cat-chips');if(!el)return;
-  el.innerHTML=CATS.map(c=>`<div class="chip${selCat===c.k?' on':''}" onclick="pickCat('${c.k}')">${c.ic} ${c.l.split('-')[0].split('/')[0].trim()}</div>`).join('');
+  el.innerHTML=CATS().map(c=>`<div class="chip${selCat===c.k?' on':''}" onclick="pickCat('${c.k}')">${c.ic} ${c.l.split('-')[0].split('/')[0].trim()}</div>`).join('');
 }
 
 function pickCat(k){selCat=k;renderChips();}
@@ -627,13 +636,13 @@ function delTx(id){
 
 let cfgDraft=null,cTab='ing';
 
-function openCfg(){cfgDraft=JSON.parse(JSON.stringify(S.config));cTab='ing';switchCfgTab('ing');openModal('m-cfg');}
+function openCfg(){cfgDraft=JSON.parse(JSON.stringify(S.config));cfgDraft.cats=JSON.parse(JSON.stringify(S.cats&&S.cats.length?S.cats:DEF_CATS));cTab='ing';switchCfgTab('ing');openModal('m-cfg');}
 
 function cfgTab(t){cTab=t;switchCfgTab(t);}
 
 function switchCfgTab(t){
   cTab=t;
-  document.querySelectorAll('.cfg-tab').forEach((el,i)=>{el.classList.toggle('on',['ing','fij','deu','pre','qui'][i]===t);});
+  document.querySelectorAll('.cfg-tab').forEach((el,i)=>{el.classList.toggle('on',['ing','fij','deu','pre','qui','cat'][i]===t);});
   renderCfgBody();
 }
 
@@ -660,7 +669,16 @@ function renderCfgBody(){
       break;}
     case'pre':
       const p=cfgDraft.presup||{};
-      el.innerHTML=`<div style="font-size:12px;color:var(--text2);margin-bottom:12px">Disponible Real: <strong style="color:var(--green)">${fmt(dispReal())}</strong></div>`+CATS.filter(c=>c.k!=='otro').map(c=>`<div class="fgroup"><label class="flbl">${c.ic} ${c.l}</label><input class="finput" type="number" inputmode="decimal" placeholder="0" value="${p[c.k]||''}" oninput="cfgDraft.presup['${c.k}']=+this.value||0"></div>`).join('');break;
+      el.innerHTML=`<div style="font-size:12px;color:var(--text2);margin-bottom:12px">Disponible Real: <strong style="color:var(--green)">${fmt(dispReal())}</strong></div>`+CATS().filter(c=>c.k!=='otro').map(c=>`<div class="fgroup"><label class="flbl">${c.ic} ${c.l}</label><input class="finput" type="number" inputmode="decimal" placeholder="0" value="${p[c.k]||''}" oninput="cfgDraft.presup['${c.k}']=+this.value||0"></div>`).join('');break;
+    case'cat':{
+      el.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:12px">Edita el emoji y el nombre de cada categoría</div>`+
+        (cfgDraft.cats||CATS()).map((c,i)=>`
+          <div class="cfg-row" style="align-items:center">
+            <input class="finput" style="width:52px;flex-shrink:0;text-align:center;font-size:20px;padding:8px 4px" value="${esc(c.ic)}" oninput="cfgDraft.cats[${i}].ic=this.value.trim()||'📌'">
+            <input class="finput cfg-nm" placeholder="Nombre" value="${esc(c.l)}" oninput="cfgDraft.cats[${i}].l=this.value">
+          </div>`).join('')+
+        `<button class="btn-add" onclick="cfgResetCats()" style="margin-top:8px">↺ Restablecer nombres originales</button>`;
+      break;}
     case'qui':{
       const qc=cfgDraft.quincenas||{activo:false,q1:0,q2:0};
       const on=qc.activo;
@@ -695,7 +713,8 @@ function cfgDel(s,i){if(s==='ingresos')cfgDraft.ingresos.splice(i,1);if(s==='fij
 function cfgFijQ(i,q){cfgDraft.gastosFijos[i].q=q;renderCfgBody();}
 function cfgDeuQ(i,q){cfgDraft.deudas[i].q=q;renderCfgBody();}
 function cfgToggleQ(){if(!cfgDraft.quincenas)cfgDraft.quincenas={activo:false,q1:0,q2:0};cfgDraft.quincenas.activo=!cfgDraft.quincenas.activo;renderCfgBody();}
-function saveCfg(){S.config=JSON.parse(JSON.stringify(cfgDraft));save();closeModal('m-cfg');render();}
+function cfgResetCats(){cfgDraft.cats=DEF_CATS.map(c=>({...c}));renderCfgBody();}
+function saveCfg(){const cats=cfgDraft.cats;delete cfgDraft.cats;S.config=JSON.parse(JSON.stringify(cfgDraft));if(cats)S.cats=cats;save();closeModal('m-cfg');render();}
 
 function openModal(id){const ov=document.getElementById(id);ov.classList.add('on');document.body.classList.add('modal-open');ov.onclick=e=>{if(e.target===ov)closeModal(id);};}
 function closeModal(id){document.getElementById(id).classList.remove('on');document.body.classList.remove('modal-open');}
