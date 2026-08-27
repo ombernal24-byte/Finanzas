@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Finanzas</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect width='40' height='40' rx='11' fill='url(%23g)'/><defs><linearGradient id='g' x1='0' y1='0' x2='40' y2='40' gradientUnits='userSpaceOnUse'><stop offset='0%25' stop-color='%230A84FF'/><stop offset='100%25' stop-color='%23BF5AF2'/></linearGradient></defs><rect x='9' y='24' width='5' height='9' rx='2.5' fill='white'/><rect x='17.5' y='18' width='5' height='15' rx='2.5' fill='white'/><rect x='26' y='12' width='5' height='21' rx='2.5' fill='white'/><circle cx='28.5' cy='10' r='2.2' fill='white'/></svg>">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 
@@ -476,7 +477,7 @@ function rDash(){
   const nPct=ing>0?nec/ing*100:0,dPct=ing>0?des/ing*100:0,aPct=ing>0?aho/ing*100:0;
   const donut=rDonut();const dc=disp>=0?'var(--green)':'var(--red)';
   return`
-    <div class="pg-head"><div><div class="pg-title">💰 <span>Finanzas</span></div><div class="pg-sub">${mesNom(mk())}</div></div><button class="icon-btn" onclick="openCfg()">⚙</button></div>
+    <div class="pg-head"><div><div class="pg-title" style="display:flex;align-items:center;gap:10px"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;border-radius:10px"><rect width="40" height="40" rx="11" fill="url(#lg)"/><defs><linearGradient id="lg" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#0A84FF"/><stop offset="100%" stop-color="#BF5AF2"/></linearGradient></defs><rect x="9" y="24" width="5" height="9" rx="2.5" fill="white" fill-opacity=".95"/><rect x="17.5" y="18" width="5" height="15" rx="2.5" fill="white" fill-opacity=".95"/><rect x="26" y="12" width="5" height="21" rx="2.5" fill="white" fill-opacity=".95"/><polyline points="11.5,22 20,16 28.5,10" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity=".5"/><circle cx="28.5" cy="10" r="2.2" fill="white"/></svg><span>Finanzas</span></div><div class="pg-sub">${mesNom(mk())}</div></div><button class="icon-btn" onclick="openCfg()">⚙</button></div>
     <div class="card" style="background:linear-gradient(135deg,rgba(10,132,255,.13),rgba(48,209,88,.06))">
       <div class="card-ttl">Disponible Real (mensual)</div>
       <div style="font-size:38px;font-weight:800;letter-spacing:-1px;font-variant-numeric:tabular-nums;color:${dc}">${fmt(disp)}</div>
