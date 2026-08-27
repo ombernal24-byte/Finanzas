@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="apple-touch-icon" href="icon.png">
 <title>Finanzas</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect width='40' height='40' rx='11' fill='url(%23g)'/><defs><linearGradient id='g' x1='0' y1='0' x2='40' y2='40' gradientUnits='userSpaceOnUse'><stop offset='0%25' stop-color='%230A84FF'/><stop offset='100%25' stop-color='%23BF5AF2'/></linearGradient></defs><rect x='9' y='24' width='5' height='9' rx='2.5' fill='white'/><rect x='17.5' y='18' width='5' height='15' rx='2.5' fill='white'/><rect x='26' y='12' width='5' height='21' rx='2.5' fill='white'/><circle cx='28.5' cy='10' r='2.2' fill='white'/></svg>">
 <style>
@@ -245,6 +245,30 @@ select.finput option{background:var(--select-bg)}
 .empty-tx{font-size:15px;font-weight:500}
 .empty-sub{font-size:13px;margin-top:5px;color:var(--text3)}
 body.modal-open #content{overflow:hidden}
+/* ── TOASTS ── */
+#toast-cnt{position:fixed;top:calc(var(--st) + 14px);left:50%;transform:translateX(-50%);z-index:600;display:flex;flex-direction:column;gap:8px;pointer-events:none;width:calc(100% - 32px);max-width:380px}
+.toast{padding:13px 18px;border-radius:16px;font-size:14px;font-weight:600;text-align:center;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);animation:toastIn .3s cubic-bezier(.32,.72,0,1);box-shadow:0 6px 24px rgba(0,0,0,.22)}
+.toast-warn{background:rgba(255,159,10,.96);color:#fff}
+.toast-danger{background:rgba(255,69,58,.96);color:#fff}
+.toast-ok{background:rgba(48,209,88,.96);color:#fff}
+@keyframes toastIn{from{opacity:0;transform:translateY(-16px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+/* ── METAS ── */
+.meta-card{background:var(--card);border:1px solid var(--card-b);border-radius:18px;margin:0 14px 12px;padding:16px;backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px)}
+/* ── AMORT ── */
+.amort-tbl{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+.amort-tbl th{font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text2);padding:6px 8px;text-align:right;border-bottom:1px solid var(--sep)}
+.amort-tbl th:first-child,.amort-tbl td:first-child{text-align:center}
+.amort-tbl td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--sep)}
+.amort-tbl tr:last-child td{border-bottom:none}
+.amort-tbl tr.hi-row td{background:rgba(10,132,255,.08)}
+/* ── PRINT ── */
+@media print{
+  #tabbar,#fab,#toast-cnt,.overlay,button{display:none!important}
+  body{background:#fff!important;color:#000!important;overflow:auto!important}
+  .card,.kpi,.arc-card,.meta-card{background:#fff!important;border:1px solid #ddd!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+  #content{overflow:visible!important;padding-bottom:0!important}
+  #app{height:auto!important;overflow:visible!important}
+}
 </style>
 </head>
 <body>
@@ -262,7 +286,11 @@ body.modal-open #content{overflow:hidden}
     </button>
     <button class="tab-btn" onclick="goTab('presup')" id="t-presup">
       <svg viewBox="0 0 24 24" fill="none"><path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      Presupuesto
+      Presup.
+    </button>
+    <button class="tab-btn" onclick="goTab('metas')" id="t-metas">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="6" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
+      Metas
     </button>
     <button class="tab-btn" onclick="goTab('hist')" id="t-hist">
       <svg viewBox="0 0 24 24" fill="none"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -323,6 +351,7 @@ body.modal-open #content{overflow:hidden}
       <button class="cfg-tab" onclick="cfgTab('pre')">Presupuesto</button>
       <button class="cfg-tab" onclick="cfgTab('qui')" style="border-color:rgba(191,90,242,.4)">💜 Quincenas</button>
       <button class="cfg-tab" onclick="cfgTab('cat')">✏️ Categorías</button>
+      <button class="cfg-tab" onclick="cfgTab('rec')">📅 Recurrentes</button>
     </div>
     <div id="cfg-body"></div>
     <button class="btn-main" onclick="saveCfg()" style="margin-top:16px">Guardar</button>
@@ -332,9 +361,69 @@ body.modal-open #content{overflow:hidden}
         <button class="btn-add" onclick="exportData()" style="margin:0">⬇ Exportar datos</button>
         <button class="btn-add" onclick="document.getElementById('import-file').click()" style="margin:0">⬆ Importar datos</button>
       </div>
+      <button class="btn-add" onclick="closeModal('m-cfg');setTimeout(exportPDF,200)" style="margin-top:8px;width:100%">🖨 Exportar PDF / Imprimir</button>
       <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(this)">
       <div style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center">Guarda un .json para no perder tus datos si borras el historial del navegador</div>
     </div>
+  </div>
+</div>
+
+<div id="toast-cnt"></div>
+
+<!-- METAS MODAL -->
+<div class="overlay" id="m-meta">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div class="modal-ttl" id="meta-ttl" style="margin:0">Nueva Meta</div>
+      <button onclick="closeModal('m-meta')" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--chip-bg);color:var(--text2);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
+    </div>
+    <div class="fgroup">
+      <label class="flbl">Emoji</label>
+      <input class="finput" id="meta-ic" style="font-size:22px;text-align:center" maxlength="3" placeholder="🎯">
+    </div>
+    <div class="fgroup">
+      <label class="flbl">Nombre</label>
+      <input class="finput" id="meta-nm" type="text" placeholder="ej. Vacaciones, Carro nuevo..." autocomplete="off">
+    </div>
+    <div class="fgroup">
+      <label class="flbl">Meta ($)</label>
+      <input class="finput" id="meta-tgt" type="number" inputmode="decimal" placeholder="0" min="1">
+    </div>
+    <div class="fgroup">
+      <label class="flbl">Color</label>
+      <div id="meta-cols" style="display:flex;gap:10px;flex-wrap:wrap;padding:4px 0"></div>
+    </div>
+    <button class="btn-main" onclick="saveMeta()">Guardar Meta</button>
+  </div>
+</div>
+
+<!-- ABONAR MODAL -->
+<div class="overlay" id="m-abonar">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div class="modal-ttl" id="abonar-ttl" style="margin:0">Abonar</div>
+      <button onclick="closeModal('m-abonar')" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--chip-bg);color:var(--text2);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
+    </div>
+    <div id="abonar-info"></div>
+    <div class="fgroup">
+      <label class="flbl">Monto a abonar ($)</label>
+      <input class="finput" id="abonar-val" type="number" inputmode="decimal" placeholder="0" min="1">
+    </div>
+    <button class="btn-main" onclick="doAbonar()">Confirmar Abono</button>
+  </div>
+</div>
+
+<!-- AMORTIZACIÓN MODAL -->
+<div class="overlay" id="m-amort">
+  <div class="sheet" style="max-height:92vh">
+    <div class="handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div class="modal-ttl" id="amort-ttl" style="margin:0">Amortización</div>
+      <button onclick="closeModal('m-amort')" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--chip-bg);color:var(--text2);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
+    </div>
+    <div id="amort-body"></div>
   </div>
 </div>
 
@@ -359,11 +448,12 @@ function defState(){
     config:{
       ingresos:[{n:'Salario',m:0}],
       gastosFijos:[{n:'Arriendo',m:0}],
-      deudas:[{n:'Crédito Libre Destino',c:0},{n:'Crédito Vehículo',c:0}],
+      deudas:[{n:'Crédito Libre Destino',c:0,saldo:0,tasa:0},{n:'Crédito Vehículo',c:0,saldo:0,tasa:0}],
       presup:{transporte:0,alimentacionMkt:0,alimentacionRst:0,tarjeta:0,ahorro:0,entretenimiento:0,ropa:0,mascotas:0,personal:0},
-      quincenas:{activo:false,q1:0,q2:0}
+      quincenas:{activo:false,q1:0,q2:0},
+      recurrentes:[]
     },
-    meses:{},archivos:{},cats:[],lastMk:mk()
+    meses:{},archivos:{},cats:[],metas:[],lastMk:mk()
   };
 }
 
@@ -372,7 +462,7 @@ let S=defState();
 function mk(d){const x=d||new Date();return`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}`;}
 
 function load(){
-  try{const r=localStorage.getItem(SK);if(r){const p=JSON.parse(r);S={...defState(),...p};S.config={...defState().config,...p.config};S.config.presup={...defState().config.presup,...(p.config?.presup||{})};if(!('mascotas' in S.config.presup))S.config.presup.mascotas=0;if(!('personal' in S.config.presup))S.config.presup.personal=0;S.config.quincenas={...defState().config.quincenas,...(p.config?.quincenas||{})};if(!S.cats||!S.cats.length)S.cats=DEF_CATS.map(c=>({...c}));}}catch(e){}
+  try{const r=localStorage.getItem(SK);if(r){const p=JSON.parse(r);S={...defState(),...p};S.config={...defState().config,...p.config};S.config.presup={...defState().config.presup,...(p.config?.presup||{})};if(!('mascotas' in S.config.presup))S.config.presup.mascotas=0;if(!('personal' in S.config.presup))S.config.presup.personal=0;S.config.quincenas={...defState().config.quincenas,...(p.config?.quincenas||{})};if(!S.cats||!S.cats.length)S.cats=DEF_CATS.map(c=>({...c}));if(!S.metas)S.metas=[];if(!S.config.recurrentes)S.config.recurrentes=[];S.config.deudas=(S.config.deudas||[]).map(d=>({saldo:0,tasa:0,...d}));}}catch(e){}
 }
 
 function save(){try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}}
@@ -437,6 +527,7 @@ function render(){
     case'dash':el.innerHTML=rDash();break;
     case'gastos':el.innerHTML=rGastos();break;
     case'presup':el.innerHTML=rPresup();break;
+    case'metas':el.innerHTML=rMetas();break;
     case'hist':el.innerHTML=rHist();setTimeout(drawChart,100);break;
     default:el.innerHTML=rDash();
   }
@@ -494,6 +585,7 @@ function rDash(){
       <div class="kpi"><div class="kpi-lbl">Ritmo Actual</div><div class="kpi-val" style="color:var(--orange)">${fmt(ritmo())}</div><div class="kpi-sub">Ajustado al ritmo</div></div>
     </div>
     ${donut?`<div class="card"><div class="card-ttl">Distribución de Gastos</div><div class="donut-wrap">${donut}</div></div>`:''}
+    ${rDeudaCard()}
     <div class="card">
       <div class="card-ttl">Regla 50/30/20</div>
       <div class="rule-row"><div class="rule-dot" style="background:var(--blue)"></div><div class="rule-lbl">Necesidades</div><div class="rule-tgt">50%</div><div class="rule-pct" style="color:${nPct<=50?'var(--green)':'var(--red)'}">${nPct.toFixed(0)}%</div><div class="rule-ico">${nPct<=50?'✅':'⚠️'}</div></div>
@@ -627,7 +719,9 @@ function saveTx(){
   const cur=mk();if(!S.meses[cur])S.meses[cur]={txns:[]};
   if(txEditId){const idx=S.meses[cur].txns.findIndex(t=>t.id===txEditId);if(idx>=0)S.meses[cur].txns[idx]={...S.meses[cur].txns[idx],desc,mo,dt,tp:txType,cat:txType==='Gasto'?selCat:'ingreso'};}
   else{S.meses[cur].txns.push({id:Date.now()+Math.random().toString(36).slice(2,5),desc,mo,dt,tp:txType,cat:txType==='Gasto'?selCat:'ingreso'});}
-  save();closeModal('m-tx');render();
+  save();
+  if(txType==='Gasto')checkBudgetAlerts();
+  closeModal('m-tx');render();
 }
 
 function delTx(id){
@@ -644,7 +738,7 @@ function cfgTab(t){cTab=t;switchCfgTab(t);}
 
 function switchCfgTab(t){
   cTab=t;
-  document.querySelectorAll('.cfg-tab').forEach((el,i)=>{el.classList.toggle('on',['ing','fij','deu','pre','qui','cat'][i]===t);});
+  document.querySelectorAll('.cfg-tab').forEach((el,i)=>{el.classList.toggle('on',['ing','fij','deu','pre','qui','cat','rec'][i]===t);});
   renderCfgBody();
 }
 
@@ -666,9 +760,11 @@ function renderCfgBody(){
       break;}
     case'deu':{
       const qA=cfgDraft.quincenas?.activo;
-      const qSel=(val,i,fn)=>qA?`<div style="display:flex;gap:4px;flex-shrink:0"><button onclick="${fn}(${i},'q1')" style="padding:3px 8px;border-radius:8px;border:1px solid ${val==='q1'?'var(--blue)':'var(--chip-b)'};background:${val==='q1'?'rgba(10,132,255,.2)':'var(--chip-bg)'};color:${val==='q1'?'var(--blue)':'var(--text2)'};font-size:11px;font-weight:700;cursor:pointer">Q1</button><button onclick="${fn}(${i},'q2')" style="padding:3px 8px;border-radius:8px;border:1px solid ${val==='q2'?'var(--purple)':'var(--chip-b)'};background:${val==='q2'?'rgba(191,90,242,.2)':'var(--chip-bg)'};color:${val==='q2'?'var(--purple)':'var(--text2)'};font-size:11px;font-weight:700;cursor:pointer">Q2</button></div>`:'';
-      el.innerHTML=`${qA?`<div style="font-size:11px;color:var(--text2);margin-bottom:10px">Marca cada cuota en qué quincena se paga</div>`:''}${(cfgDraft.deudas||[]).map((x,i)=>`<div class="cfg-row">${qSel((x.q||'q1'),i,'cfgDeuQ')}<input class="finput cfg-nm" placeholder="Deuda" value="${esc(x.n)}" oninput="cfgDraft.deudas[${i}].n=this.value"><input class="finput cfg-amt" type="number" inputmode="decimal" placeholder="Cuota" value="${x.c||''}" oninput="cfgDraft.deudas[${i}].c=+this.value||0"><button class="cfg-del" onclick="cfgDel('deudas',${i})">×</button></div>`).join('')}<button class="btn-add" onclick="cfgAdd('deudas')">+ Agregar deuda</button>`;
+      const qSel=(val,i,fn)=>qA?`<div style="display:flex;gap:4px;flex-shrink:0;margin-bottom:4px"><button onclick="${fn}(${i},'q1')" style="padding:3px 8px;border-radius:8px;border:1px solid ${val==='q1'?'var(--blue)':'var(--chip-b)'};background:${val==='q1'?'rgba(10,132,255,.2)':'var(--chip-bg)'};color:${val==='q1'?'var(--blue)':'var(--text2)'};font-size:11px;font-weight:700;cursor:pointer">Q1</button><button onclick="${fn}(${i},'q2')" style="padding:3px 8px;border-radius:8px;border:1px solid ${val==='q2'?'var(--purple)':'var(--chip-b)'};background:${val==='q2'?'rgba(191,90,242,.2)':'var(--chip-bg)'};color:${val==='q2'?'var(--purple)':'var(--text2)'};font-size:11px;font-weight:700;cursor:pointer">Q2</button></div>`:'';
+      el.innerHTML=`${qA?`<div style="font-size:11px;color:var(--text2);margin-bottom:10px">Marca cada cuota en qué quincena se paga</div>`:''}${(cfgDraft.deudas||[]).map((x,i)=>`<div style="background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:12px;margin-bottom:10px">${qSel((x.q||'q1'),i,'cfgDeuQ')}<div class="cfg-row" style="margin-bottom:8px"><input class="finput cfg-nm" placeholder="Nombre deuda" value="${esc(x.n)}" oninput="cfgDraft.deudas[${i}].n=this.value"><button class="cfg-del" onclick="cfgDel('deudas',${i})">×</button></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><div><div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Cuota/mes</div><input class="finput" type="number" inputmode="decimal" placeholder="0" value="${x.c||''}" oninput="cfgDraft.deudas[${i}].c=+this.value||0"></div><div><div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Saldo actual</div><input class="finput" type="number" inputmode="decimal" placeholder="0" value="${x.saldo||''}" oninput="cfgDraft.deudas[${i}].saldo=+this.value||0"></div><div><div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Tasa EA %</div><input class="finput" type="number" inputmode="decimal" placeholder="0" value="${x.tasa||''}" oninput="cfgDraft.deudas[${i}].tasa=+this.value||0"></div></div></div>`).join('')}<button class="btn-add" onclick="cfgAdd('deudas')">+ Agregar deuda</button><div style="font-size:11px;color:var(--text2);margin-top:10px">💡 Con saldo y tasa puedes ver la tabla de amortización desde el inicio</div>`;
       break;}
+    case'rec':
+      el.innerHTML=rCfgRec();break;
     case'pre':
       const p=cfgDraft.presup||{};
       el.innerHTML=`<div style="font-size:12px;color:var(--text2);margin-bottom:12px">Disponible Real: <strong style="color:var(--green)">${fmt(dispReal())}</strong></div>`+CATS().filter(c=>c.k!=='otro').map(c=>`<div class="fgroup"><label class="flbl">${c.ic} ${c.l}</label><input class="finput" type="number" inputmode="decimal" placeholder="0" value="${p[c.k]||''}" oninput="cfgDraft.presup['${c.k}']=+this.value||0"></div>`).join('');break;
@@ -710,7 +806,7 @@ function renderCfgBody(){
   }
 }
 
-function cfgAdd(s){if(s==='ingresos')cfgDraft.ingresos.push({n:'',m:0});if(s==='fijos')cfgDraft.gastosFijos.push({n:'',m:0,q:'q1'});if(s==='deudas')cfgDraft.deudas.push({n:'',c:0,q:'q1'});renderCfgBody();}
+function cfgAdd(s){if(s==='ingresos')cfgDraft.ingresos.push({n:'',m:0});if(s==='fijos')cfgDraft.gastosFijos.push({n:'',m:0,q:'q1'});if(s==='deudas')cfgDraft.deudas.push({n:'',c:0,saldo:0,tasa:0,q:'q1'});renderCfgBody();}
 function cfgDel(s,i){if(s==='ingresos')cfgDraft.ingresos.splice(i,1);if(s==='fijos')cfgDraft.gastosFijos.splice(i,1);if(s==='deudas')cfgDraft.deudas.splice(i,1);renderCfgBody();}
 function cfgFijQ(i,q){cfgDraft.gastosFijos[i].q=q;renderCfgBody();}
 function cfgDeuQ(i,q){cfgDraft.deudas[i].q=q;renderCfgBody();}
@@ -747,7 +843,251 @@ function importData(input){
   reader.readAsText(file);
 }
 
-load();checkArchive();render();
+// ─── SISTEMA DE TOASTS ────────────────────────────────────────────────────────
+const _alerted=new Set();
+function showToast(msg,type='ok'){
+  const c=document.getElementById('toast-cnt');if(!c)return;
+  const t=document.createElement('div');
+  t.className='toast toast-'+type;t.textContent=msg;
+  c.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),300);},3200);
+}
+function checkBudgetAlerts(){
+  if(!S.config.presup)return;
+  CATS().forEach(c=>{
+    const pre=+S.config.presup[c.k]||0;if(pre<=0)return;
+    const gas=gastoCat(c.k);const pct=gas/pre;
+    const k100=mk()+'_'+c.k+'_100',k80=mk()+'_'+c.k+'_80';
+    if(pct>=1&&!_alerted.has(k100)){_alerted.add(k100);showToast('🚨 '+c.l+': presupuesto AGOTADO','danger');}
+    else if(pct>=0.8&&pct<1&&!_alerted.has(k80)){_alerted.add(k80);showToast('⚠️ '+c.l+': 80% del presupuesto usado','warn');}
+  });
+}
+
+// ─── METAS DE AHORRO ─────────────────────────────────────────────────────────
+const META_COLS=['#0A84FF','#30D158','#FF9F0A','#FF453A','#BF5AF2','#FF2D92','#32ADE6','#FF6B35'];
+let metaEditId=null,metaSelCol='#0A84FF';
+
+function rMetas(){
+  const metas=S.metas||[];
+  const done=metas.filter(m=>(m.actual||0)>=m.meta).length;
+  return`<div class="pg-head"><div><div class="pg-title">Metas de <span>Ahorro</span></div><div class="pg-sub">${metas.length} meta${metas.length!==1?'s':''} · ${done} lograda${done!==1?'s':''}</div></div><button class="icon-btn" onclick="openMeta()" title="Nueva meta" style="font-size:22px;font-weight:300">+</button></div>
+    ${metas.length===0?`<div class="empty-st" style="padding:60px 20px"><div class="empty-ico">🎯</div><div class="empty-tx">Sin metas todavía</div><div class="empty-sub">Toca + para crear tu primera meta de ahorro</div></div>`:metas.map(m=>rMetaCard(m)).join('')}`;
+}
+function rMetaCard(m){
+  const pct=m.meta>0?Math.min(100,((m.actual||0)/m.meta)*100):0;
+  const falta=Math.max(0,m.meta-(m.actual||0));const done=falta<=0;
+  return`<div class="meta-card">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <div style="width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;background:${m.col||'#0A84FF'}22">${m.ic||'🎯'}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.n)}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:1px;font-variant-numeric:tabular-nums">${fmt(m.actual||0)} de ${fmt(m.meta)}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        <div style="font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;color:${done?'var(--green)':m.col||'var(--blue)'}">${pct.toFixed(0)}%</div>
+        <div style="display:flex;gap:5px">
+          <button onclick="openAbonar('${m.id}')" style="padding:5px 10px;border-radius:8px;border:none;background:${done?'var(--green)':'var(--blue)'};color:#fff;font-size:12px;font-weight:700;cursor:pointer">${done?'✅':'Abonar'}</button>
+          <button onclick="openMeta('${m.id}')" style="padding:5px 8px;border-radius:8px;border:none;background:var(--chip-bg);color:var(--text2);font-size:12px;cursor:pointer">✏️</button>
+          <button onclick="delMeta('${m.id}')" style="padding:5px 8px;border-radius:8px;border:none;background:var(--del-bg);color:var(--red);font-size:12px;cursor:pointer">×</button>
+        </div>
+      </div>
+    </div>
+    <div class="prog-bg" style="height:8px"><div class="prog-fill" style="width:${pct}%;background:${done?'var(--green)':m.col||'var(--blue)'}"></div></div>
+    ${done?`<div style="font-size:11px;color:var(--green);margin-top:6px;font-weight:700">¡Meta alcanzada! 🎉</div>`:`<div style="font-size:11px;color:var(--text2);margin-top:6px">Faltan ${fmt(falta)}</div>`}
+  </div>`;
+}
+function openMeta(id){
+  metaEditId=id||null;
+  const m=id?(S.metas||[]).find(x=>x.id===id):null;
+  document.getElementById('meta-ttl').textContent=id?'Editar Meta':'Nueva Meta';
+  document.getElementById('meta-ic').value=m?m.ic:'🎯';
+  document.getElementById('meta-nm').value=m?m.n:'';
+  document.getElementById('meta-tgt').value=m?m.meta:'';
+  metaSelCol=m?(m.col||'#0A84FF'):'#0A84FF';
+  renderMetaCols();openModal('m-meta');
+}
+function renderMetaCols(){
+  const el=document.getElementById('meta-cols');if(!el)return;
+  el.innerHTML=META_COLS.map(c=>`<div onclick="metaSelCol='${c}';renderMetaCols()" style="width:28px;height:28px;border-radius:50%;background:${c};cursor:pointer;border:3px solid ${c===metaSelCol?'#fff':'transparent'};box-sizing:border-box;box-shadow:${c===metaSelCol?'0 0 0 2px '+c+',0 2px 6px rgba(0,0,0,.3)':'none'};transition:box-shadow .15s"></div>`).join('');
+}
+function saveMeta(){
+  const ic=document.getElementById('meta-ic').value.trim()||'🎯';
+  const n=document.getElementById('meta-nm').value.trim();
+  const meta=+document.getElementById('meta-tgt').value;
+  if(!n){alert('Ingresa un nombre');return;}
+  if(!meta||meta<=0){alert('Ingresa un monto válido');return;}
+  if(!S.metas)S.metas=[];
+  if(metaEditId){const idx=S.metas.findIndex(x=>x.id===metaEditId);if(idx>=0)S.metas[idx]={...S.metas[idx],ic,n,meta,col:metaSelCol};}
+  else{S.metas.push({id:Date.now()+Math.random().toString(36).slice(2,5),ic,n,meta,actual:0,col:metaSelCol});}
+  save();closeModal('m-meta');render();
+}
+function delMeta(id){
+  if(!confirm('¿Eliminar esta meta?'))return;
+  S.metas=(S.metas||[]).filter(x=>x.id!==id);save();render();
+}
+let abonarMetaId=null;
+function openAbonar(id){
+  abonarMetaId=id;const m=(S.metas||[]).find(x=>x.id===id);if(!m)return;
+  document.getElementById('abonar-ttl').textContent='Abonar a: '+m.n;
+  document.getElementById('abonar-info').innerHTML=`<div style="text-align:center;padding:14px;background:${m.col||'#0A84FF'}18;border-radius:12px;margin-bottom:16px"><div style="font-size:30px">${m.ic||'🎯'}</div><div style="font-size:22px;font-weight:800;margin-top:6px;font-variant-numeric:tabular-nums;color:${m.col||'var(--blue)'}">${((Math.min(1,(m.actual||0)/m.meta))*100).toFixed(0)}%</div><div style="font-size:13px;color:var(--text2);margin-top:2px">${fmt(m.actual||0)} de ${fmt(m.meta)}</div></div>`;
+  document.getElementById('abonar-val').value='';
+  openModal('m-abonar');
+}
+function doAbonar(){
+  const v=+document.getElementById('abonar-val').value;
+  if(!v||v<=0){alert('Ingresa un monto válido');return;}
+  const idx=(S.metas||[]).findIndex(x=>x.id===abonarMetaId);if(idx<0)return;
+  S.metas[idx].actual=(S.metas[idx].actual||0)+v;
+  const m=S.metas[idx];
+  if(m.actual>=m.meta)showToast('🎉 ¡Meta "'+m.n+'" alcanzada!','ok');
+  else showToast('💰 Abono registrado: '+fmt(v),'ok');
+  save();closeModal('m-abonar');render();
+}
+
+// ─── DEUDA TRACKER / AMORTIZACIÓN ────────────────────────────────────────────
+function calcAmort(saldo,tasa,cuota){
+  const tm=tasa/100/12;const rows=[];let s=+saldo;let mes=0;
+  while(s>0.5&&mes<600){
+    mes++;const int=tm>0?s*tm:0;const cap=Math.min(cuota-int,s);
+    if(cap<=0.01)break;
+    s=Math.max(0,s-cap);
+    rows.push({mes,int:Math.round(int),cap:Math.round(cap),cuota:Math.round(int+cap),saldo:Math.round(s)});
+  }
+  return rows;
+}
+function rDeudaCard(){
+  const deudas=S.config.deudas||[];
+  const withSaldo=deudas.filter(d=>+d.saldo>0);if(!withSaldo.length)return'';
+  return`<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-ttl" style="margin:0">💳 Tracker de Deudas</div>
+      <div style="font-size:11px;color:var(--text2)">${withSaldo.length} activa${withSaldo.length!==1?'s':''}</div>
+    </div>
+    ${deudas.map((d,i)=>{
+      const s=+d.saldo||0;if(!s)return`<div style="padding:8px 0;border-bottom:1px solid var(--sep)"><div style="font-size:13px;color:var(--text2)">${esc(d.n)}</div></div>`;
+      const tasa=+d.tasa||0,c=+d.c||0;
+      const tm=tasa/100/12;const int=tm>0?Math.round(s*tm):0;const cap=Math.max(0,Math.round(c-int));
+      const rows=c>0?calcAmort(s,tasa,c):[];
+      return`<div style="padding:10px 0;border-bottom:1px solid var(--sep)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${rows.length?'8':'0'}px">
+          <div><div style="font-size:14px;font-weight:600">${esc(d.n)}</div><div style="font-size:11px;color:var(--text2);margin-top:2px;font-variant-numeric:tabular-nums">Saldo: ${fmt(s)}${tasa?` · ${tasa}% EA`:''}</div></div>
+          ${c>0?`<button onclick="openAmort(${i})" style="padding:6px 12px;border-radius:10px;border:1px solid rgba(10,132,255,.3);background:rgba(10,132,255,.12);color:var(--blue);font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">Ver tabla →</button>`:''}
+        </div>
+        ${rows.length?`<div style="display:flex;gap:14px"><div><div style="font-size:10px;color:var(--text2)">Interés / cuota</div><div style="font-size:13px;font-weight:700;color:var(--orange);font-variant-numeric:tabular-nums">${fmt(int)}</div></div><div><div style="font-size:10px;color:var(--text2)">Capital / cuota</div><div style="font-size:13px;font-weight:700;color:var(--green);font-variant-numeric:tabular-nums">${fmt(cap)}</div></div><div><div style="font-size:10px;color:var(--text2)">Meses restantes</div><div style="font-size:13px;font-weight:700;color:var(--red)">${rows.length}</div></div></div>`:''}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+let amortIdx=null,amortExtra=0;
+function openAmort(i){
+  amortIdx=i;amortExtra=0;
+  const d=(S.config.deudas||[])[i];if(!d)return;
+  document.getElementById('amort-ttl').textContent=d.n||'Amortización';
+  renderAmortBody();openModal('m-amort');
+}
+function renderAmortBody(){
+  const d=(S.config.deudas||[])[amortIdx];if(!d)return;
+  const el=document.getElementById('amort-body');if(!el)return;
+  const saldo=+d.saldo||0,tasa=+d.tasa||0,cuotaBase=+d.c||0;
+  if(!saldo||!cuotaBase){
+    el.innerHTML=`<div style="text-align:center;padding:30px;color:var(--text2)"><div style="font-size:36px;margin-bottom:10px">📊</div><div style="font-size:14px;line-height:1.6">Configura el <strong>saldo actual</strong> y la <strong>tasa EA</strong> de esta deuda en Configuración → Deudas para ver el análisis completo.</div></div>`;return;
+  }
+  const cuota=cuotaBase+(amortExtra||0);
+  const rows=calcAmort(saldo,tasa,cuota);
+  if(!rows.length){el.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text2)">Verifica que la cuota supere los intereses</div>`;return;}
+  const totInt=rows.reduce((s,r)=>s+r.int,0);
+  const totPag=rows.reduce((s,r)=>s+r.cuota,0);
+  const rowsBase=amortExtra>0?calcAmort(saldo,tasa,cuotaBase):rows;
+  const savedInt=amortExtra>0?rowsBase.reduce((s,r)=>s+r.int,0)-totInt:0;
+  const savedMes=amortExtra>0?rowsBase.length-rows.length:0;
+  el.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
+      <div style="background:rgba(255,69,58,.10);border:1px solid rgba(255,69,58,.2);border-radius:12px;padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Meses restantes</div>
+        <div style="font-size:24px;font-weight:800;color:var(--red)">${rows.length}</div>
+      </div>
+      <div style="background:rgba(255,159,10,.10);border:1px solid rgba(255,159,10,.2);border-radius:12px;padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Total intereses</div>
+        <div style="font-size:14px;font-weight:800;color:var(--orange);font-variant-numeric:tabular-nums">${fmt(totInt)}</div>
+      </div>
+      <div style="background:rgba(10,132,255,.10);border:1px solid rgba(10,132,255,.2);border-radius:12px;padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Total a pagar</div>
+        <div style="font-size:14px;font-weight:800;color:var(--blue);font-variant-numeric:tabular-nums">${fmt(totPag)}</div>
+      </div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:14px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:10px">Simulador de abono extra</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="finput" id="amort-extra" type="number" inputmode="decimal" placeholder="$ Abono extra por mes" value="${amortExtra||''}" style="flex:1;margin:0">
+        <button onclick="amortSim()" style="padding:11px 16px;border-radius:12px;border:none;background:var(--blue);color:#fff;font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0">Simular</button>
+      </div>
+      ${amortExtra>0?`<div style="margin-top:10px;padding:10px 12px;background:rgba(48,209,88,.12);border:1px solid rgba(48,209,88,.25);border-radius:10px;font-size:13px;color:var(--green)">✅ Con ${fmt(amortExtra)}/mes extra: terminas <strong>${savedMes} mes${savedMes!==1?'es':''} antes</strong> y ahorras <strong>${fmt(savedInt)}</strong> en intereses</div>`:''}
+    </div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">Tabla de Amortización (cuota: ${fmt(cuota)}/mes)</div>
+    <div style="overflow-x:auto;border-radius:12px;border:1px solid var(--sep)">
+      <table class="amort-tbl">
+        <thead><tr><th>Mes</th><th>Cuota</th><th>Interés</th><th>Capital</th><th>Saldo</th></tr></thead>
+        <tbody>${rows.slice(0,60).map((r,idx)=>`<tr${idx===0?' class="hi-row"':''}><td>${r.mes}</td><td>${fmt(r.cuota)}</td><td style="color:var(--orange)">${fmt(r.int)}</td><td style="color:var(--green)">${fmt(r.cap)}</td><td>${fmt(r.saldo)}</td></tr>`).join('')}
+        ${rows.length>60?`<tr><td colspan="5" style="text-align:center;color:var(--text2);font-style:italic;padding:10px">... ${rows.length-60} meses más</td></tr>`:''}</tbody>
+      </table>
+    </div>`;
+}
+function amortSim(){amortExtra=+document.getElementById('amort-extra').value||0;renderAmortBody();}
+
+// ─── GASTOS RECURRENTES ────────────────────────────────────────────────────────
+function checkRecurrentes(){
+  const rec=S.config.recurrentes||[];if(!rec.length)return;
+  const cur=mk();if(!S.meses[cur])S.meses[cur]={txns:[]};
+  let added=0;
+  rec.filter(r=>r.activo!==false).forEach(r=>{
+    const already=S.meses[cur].txns.some(t=>t.recId===r.id&&t.dt.startsWith(cur));
+    if(!already){
+      const d=new Date(),lastDay=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+      const dia=Math.min(+r.dia||1,lastDay);
+      const dt=cur+'-'+String(dia).padStart(2,'0');
+      S.meses[cur].txns.push({id:Date.now()+Math.random().toString(36).slice(2,6),desc:r.n,mo:+r.m||0,dt,tp:'Gasto',cat:r.cat||'otro',recId:r.id,auto:true});
+      added++;
+    }
+  });
+  if(added>0){save();setTimeout(()=>showToast('📅 '+added+' gasto'+( added!==1?'s recurrentes':' recurrente')+' registrado'+(added!==1?'s':''),'ok'),800);}
+}
+function rCfgRec(){
+  if(!cfgDraft.recurrentes)cfgDraft.recurrentes=[];
+  const rec=cfgDraft.recurrentes;
+  return(rec.length===0?`<div style="text-align:center;padding:20px;color:var(--text2);font-size:13px">Se registran automáticamente cada mes en la fecha indicada</div>`:
+    `<div style="font-size:11px;color:var(--text2);margin-bottom:12px">Se registran automáticamente cada mes en la fecha indicada</div>`+
+    rec.map((r,i)=>`<div style="background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:12px;margin-bottom:8px">
+      <div class="cfg-row" style="margin-bottom:8px">
+        <input class="finput cfg-nm" placeholder="Nombre del gasto" value="${esc(r.n)}" oninput="cfgDraft.recurrentes[${i}].n=this.value">
+        <input class="finput cfg-amt" type="number" inputmode="decimal" placeholder="Monto" value="${r.m||''}" oninput="cfgDraft.recurrentes[${i}].m=+this.value||0">
+        <button class="cfg-del" onclick="cfgDelRec(${i})">×</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <div style="flex:1">
+          <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Categoría</div>
+          <select class="finput" style="padding:8px 10px" onchange="cfgDraft.recurrentes[${i}].cat=this.value">${CATS().map(c=>`<option value="${c.k}"${r.cat===c.k?' selected':''}>${c.ic} ${c.l.split('-')[0].split('/')[0].trim()}</option>`).join('')}</select>
+        </div>
+        <div style="width:72px">
+          <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Día</div>
+          <input class="finput" type="number" min="1" max="28" placeholder="1" value="${r.dia||1}" oninput="cfgDraft.recurrentes[${i}].dia=Math.min(28,Math.max(1,+this.value||1))">
+        </div>
+        <div style="width:56px;text-align:center">
+          <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Activo</div>
+          <div onclick="cfgDraft.recurrentes[${i}].activo=!(cfgDraft.recurrentes[${i}].activo!==false);renderCfgBody()" style="width:44px;height:26px;border-radius:13px;background:${r.activo!==false?'var(--green)':'var(--chip-bg)'};border:1px solid ${r.activo!==false?'var(--green)':'var(--chip-b)'};cursor:pointer;position:relative;margin:0 auto">
+            <div style="position:absolute;top:2px;${r.activo!==false?'right:2px':'left:2px'};width:22px;height:22px;border-radius:50%;background:#fff;transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div>
+          </div>
+        </div>
+      </div>
+    </div>`).join(''))+
+    `<button class="btn-add" onclick="cfgAddRec()">+ Agregar gasto recurrente</button>`;
+}
+function cfgAddRec(){if(!cfgDraft.recurrentes)cfgDraft.recurrentes=[];cfgDraft.recurrentes.push({n:'',m:0,cat:'otro',dia:1,activo:true,id:Date.now().toString(36)});renderCfgBody();}
+function cfgDelRec(i){cfgDraft.recurrentes.splice(i,1);renderCfgBody();}
+
+// ─── PDF EXPORT ───────────────────────────────────────────────────────────────
+function exportPDF(){window.print();}
+
+load();checkArchive();checkRecurrentes();render();
 </script>
 </body>
 </html>
