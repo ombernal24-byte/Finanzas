@@ -462,7 +462,7 @@ let S=defState();
 function mk(d){const x=d||new Date();return`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}`;}
 
 function load(){
-  try{const r=localStorage.getItem(SK);if(r){const p=JSON.parse(r);S={...defState(),...p};S.config={...defState().config,...p.config};S.config.presup={...defState().config.presup,...(p.config?.presup||{})};if(!('mascotas' in S.config.presup))S.config.presup.mascotas=0;if(!('personal' in S.config.presup))S.config.presup.personal=0;S.config.quincenas={...defState().config.quincenas,...(p.config?.quincenas||{})};if(!S.cats||!S.cats.length)S.cats=DEF_CATS.map(c=>({...c}));if(!S.metas)S.metas=[];if(!S.config.recurrentes)S.config.recurrentes=[];S.config.deudas=(S.config.deudas||[]).map(d=>({saldo:0,tasa:0,...d}));}}catch(e){}
+  try{const r=localStorage.getItem(SK);if(r){const p=JSON.parse(r);S={...defState(),...p};S.config={...defState().config,...p.config};S.config.presup={...defState().config.presup,...(p.config?.presup||{})};if(!('mascotas' in S.config.presup))S.config.presup.mascotas=0;if(!('personal' in S.config.presup))S.config.presup.personal=0;S.config.quincenas={...defState().config.quincenas,...(p.config?.quincenas||{})};if(!S.cats||!S.cats.length)S.cats=DEF_CATS.map(c=>({...c}));if(!S.metas)S.metas=[];if(!S.config.recurrentes)S.config.recurrentes=[];S.config.deudas=(S.config.deudas||[]).map(d=>({saldo:0,tasa:0,...d}));if(!S.config.deudas.some(d=>d.n==='Crédito Lulo Bank')){S.config.deudas.push({n:'Crédito Lulo Bank',c:570722,saldo:6000000,tasa:23.67});}save();}}catch(e){}
 }
 
 function save(){try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}}
