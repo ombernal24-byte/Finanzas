@@ -462,7 +462,7 @@ let S=defState();
 function mk(d){const x=d||new Date();return`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}`;}
 
 function load(){
-  try{const r=localStorage.getItem(SK);if(r){const p=JSON.parse(r);S={...defState(),...p};S.config={...defState().config,...p.config};S.config.presup={...defState().config.presup,...(p.config?.presup||{})};if(!('mascotas' in S.config.presup))S.config.presup.mascotas=0;if(!('personal' in S.config.presup))S.config.presup.personal=0;S.config.quincenas={...defState().config.quincenas,...(p.config?.quincenas||{})};if(!S.cats||!S.cats.length)S.cats=DEF_CATS.map(c=>({...c}));if(!S.metas)S.metas=[];if(!S.config.recurrentes)S.config.recurrentes=[];S.config.deudas=(S.config.deudas||[]).map(d=>({saldo:0,tasa:0,...d}));}}catch(e){}
+  try{const r=localStorage.getItem(SK);if(r){const p=JSON.parse(r);S={...defState(),...p};S.config={...defState().config,...p.config};S.config.presup={...defState().config.presup,...(p.config?.presup||{})};if(!('mascotas' in S.config.presup))S.config.presup.mascotas=0;if(!('personal' in S.config.presup))S.config.presup.personal=0;S.config.quincenas={...defState().config.quincenas,...(p.config?.quincenas||{})};if(!S.cats||!S.cats.length)S.cats=DEF_CATS.map(c=>({...c}));if(!S.metas)S.metas=[];if(!S.config.recurrentes)S.config.recurrentes=[];S.config.deudas=(S.config.deudas||[]).map(d=>({saldo:0,tasa:0,abonos:[],...d}));}}catch(e){}
 }
 
 function save(){try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}}
@@ -1056,6 +1056,7 @@ function renderAmortBody(){
         <button onclick="registrarAbono()" style="padding:11px 18px;border-radius:12px;border:none;background:var(--green);color:#fff;font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0">Abonar</button>
       </div>
     </div>
+    ${renderHistorialAbonos(d)}
     <div style="background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:14px;margin-bottom:16px">
       <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:10px">🔮 Simulador cuota extra mensual</div>
       <div style="display:flex;gap:8px;align-items:center">
@@ -1075,6 +1076,34 @@ function renderAmortBody(){
 }
 function amortSim(){amortExtra=pn(document.getElementById('amort-extra').value);renderAmortBody();}
 
+function borrarAbono(abonoId){
+  const d=(S.config.deudas||[])[amortIdx];if(!d||!d.abonos)return;
+  const ab=d.abonos.find(a=>a.id===abonoId);if(!ab)return;
+  if(!confirm(`¿Eliminar abono de ${fmt(ab.monto)} del ${ab.fecha}?\n\nEl saldo volverá a ${fmt(ab.saldoAntes)}.`))return;
+  S.config.deudas[amortIdx].saldo=ab.saldoAntes;
+  d.abonos=d.abonos.filter(a=>a.id!==abonoId);
+  save();showToast('Abono eliminado · saldo restaurado','warn');render();renderAmortBody();
+}
+
+function renderHistorialAbonos(d){
+  const abs=(d.abonos||[]).slice().reverse();
+  if(!abs.length)return'';
+  const totAbonado=abs.reduce((s,a)=>s+a.monto,0);
+  return`<div style="background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:14px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2)">📋 Historial de abonos</div>
+      <div style="font-size:12px;color:var(--green);font-weight:700;font-variant-numeric:tabular-nums">Total: ${fmt(totAbonado)}</div>
+    </div>
+    ${abs.map(a=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--sep)">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--green);font-variant-numeric:tabular-nums">+${fmt(a.monto)}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">${a.fecha} · saldo ${fmt(a.saldoAntes)} → ${fmt(a.saldoDespues)}</div>
+      </div>
+      <button onclick="borrarAbono('${a.id}')" style="width:28px;height:28px;border-radius:8px;border:none;background:var(--del-bg);color:var(--red);font-size:15px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">🗑</button>
+    </div>`).join('')}
+  </div>`;
+}
+
 function registrarAbono(){
   const d=(S.config.deudas||[])[amortIdx];if(!d)return;
   const val=pn(document.getElementById('abono-xtra-val').value);
@@ -1083,7 +1112,11 @@ function registrarAbono(){
   const saldoAntes=+d.saldo;
   const tasa=+d.tasa||0,cuota=+d.c||0;
   const rowsAntes=cuota>0?calcAmort(saldoAntes,tasa,cuota):[];
+  if(!d.abonos)d.abonos=[];
+  const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const fecha=new Date().toISOString().slice(0,10);
   S.config.deudas[amortIdx].saldo=Math.round(Math.max(0,saldoAntes-val));
+  d.abonos.push({id,fecha,monto:Math.round(val),saldoAntes:Math.round(saldoAntes),saldoDespues:S.config.deudas[amortIdx].saldo});
   save();
   const saldoDespues=S.config.deudas[amortIdx].saldo;
   const rowsDespues=cuota>0?calcAmort(saldoDespues,tasa,cuota):[];
