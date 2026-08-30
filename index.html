@@ -656,7 +656,7 @@ function rDash(){
       </div>
     </div>
     ${rQCard()}
-    ${(()=>{const cuentas=S.cuentas||[];return cuentas.length?`<div class="card"><div class="card-ttl">Mis Cuentas</div>${cuentas.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--sep)"><div style="font-size:14px;font-weight:500">${esc(c.n)}${c.gmf?'<span style="font-size:10px;color:var(--orange);margin-left:6px">4×1000</span>':''}</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:${c.saldo>=0?'var(--green)':'var(--red)'}">${fmt(c.saldo)}</div></div>`).join('')}</div>`:'';})()}
+    ${(()=>{const cuentas=S.cuentas||[];if(!cuentas.length)return'';const tot=cuentas.reduce((s,c)=>s+(+c.saldo||0),0);return`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div class="card-ttl" style="margin:0">Mis Cuentas</div><div style="font-size:13px;color:var(--text2)">Total <span style="font-weight:700;font-variant-numeric:tabular-nums;color:${tot>=0?'var(--green)':'var(--red)'}">${fmt(tot)}</span></div></div>${cuentas.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--sep)"><div style="font-size:14px;font-weight:500">${esc(c.n)}${c.gmf?'<span style="font-size:10px;color:var(--orange);margin-left:6px">4×1000</span>':''}</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:${c.saldo>=0?'var(--green)':'var(--red)'}">${fmt(c.saldo)}</div></div>`).join('')}</div>`;})()}
     <div class="kpi-row">
       <div class="kpi"><div class="kpi-lbl">Cuota del Día</div><div class="kpi-val" style="color:var(--blue)">${fmt(cuotaDia())}</div><div class="kpi-sub">Presupuesto fijo</div></div>
       <div class="kpi"><div class="kpi-lbl">Ritmo Actual</div><div class="kpi-val" style="color:var(--orange)">${fmt(ritmo())}</div><div class="kpi-sub">Ajustado al ritmo</div></div>
@@ -784,7 +784,7 @@ function updTypeBtns(){
   document.getElementById('btn-i').className='type-btn'+(txType==='Ingreso'?' tg-ingreso':'');
   document.getElementById('cat-sec').style.display=txType==='Gasto'?'block':'none';
   const dsec=document.getElementById('destino-sec');
-  if(dsec){dsec.style.display=txType==='Ingreso'?'block':'none';if(txType==='Ingreso'){const ds=document.getElementById('tx-destino');if(ds){ds.innerHTML='<option value="">— Sin destino específico —</option>'+CATS().filter(c=>c.k!=='otro').map(c=>`<option value="${c.k}">${c.ic} ${c.l}</option>`).join('');}}}
+  if(dsec){dsec.style.display=txType==='Ingreso'?'block':'none';if(txType==='Ingreso'){const ds=document.getElementById('tx-destino');if(ds){ds.innerHTML='<option value="">— Sin destino específico —</option>'+CATS().map(c=>`<option value="${c.k}">${c.ic} ${c.l}</option>`).join('');}}}
 }
 
 function renderChips(){
