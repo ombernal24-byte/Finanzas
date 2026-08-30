@@ -541,7 +541,7 @@ function dispQ(q){
 function dispReal(){return totIng()+totIngTx()-totFijo()-totCuota();}
 function totPre(){return Object.values(S.config.presup).reduce((s,v)=>s+(+v||0),0);}
 function porAsig(){return dispReal()-totPre();}
-function draftDispReal(){const ing=(cfgDraft?.ingresos||[]).reduce((s,x)=>s+(+x.m||0),0);const fij=(cfgDraft?.gastosFijos||[]).reduce((s,x)=>s+(+x.m||0),0);const deu=(cfgDraft?.deudas||[]).reduce((s,x)=>s+(+x.c||0),0);return ing+totIngTx()-fij-deu;}
+function draftDispReal(){const q=cfgDraft?.quincenas;const ing=q?.activo?(+(q.q1)||0)+(+(q.q2)||0):(cfgDraft?.ingresos||[]).reduce((s,x)=>s+(+x.m||0),0);const fij=(cfgDraft?.gastosFijos||[]).reduce((s,x)=>s+(+x.m||0),0);const deu=(cfgDraft?.deudas||[]).reduce((s,x)=>s+(+x.c||0),0);return ing+totIngTx()-fij-deu;}
 function draftTotPre(){return Object.values(cfgDraft?.presup||{}).reduce((s,v)=>s+(+v||0),0);}
 function updatePreBar(){
   const el=document.getElementById('pre-libre-bar');if(!el)return;
