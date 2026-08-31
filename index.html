@@ -1303,18 +1303,22 @@ function saveTx(){
   if(!cuentaRaw){showToast('Selecciona una cuenta','warn');return;}
   const cuentaId=cuentaRaw==='efectivo'?'':cuentaRaw;
   const cuotas=+(document.getElementById('tx-cuotas')?.value||1);
+  // GMF: para cuentas con 4×1000, el monto de la transacción ya incluye el impuesto
+  const _acctGmf=cuentaId?(S.cuentas||[]).find(c=>c.id===cuentaId):null;
+  const _gmfMonto=(_acctGmf&&_acctGmf.tipo!=='tarjeta'&&_acctGmf.gmf&&txType==='Gasto')?Math.round(mo*0.004):0;
+  const moFinal=mo+_gmfMonto;
   const cur=mk();if(!S.meses[cur])S.meses[cur]={txns:[]};
   if(txEditId){
     const idx=S.meses[cur].txns.findIndex(t=>t.id===txEditId);
     if(idx>=0){
       const oldTx=S.meses[cur].txns[idx];
-      if(oldTx.cuentaId){const oi=(S.cuentas||[]).findIndex(c=>c.id===oldTx.cuentaId);if(oi>=0){const oc=S.cuentas[oi];const ogmf=oc.gmf?Math.round(oldTx.mo*0.004):0;const otd=oldTx.tp==='Gasto'?oldTx.mo+ogmf:-oldTx.mo;S.cuentas[oi].saldo=Math.round(S.cuentas[oi].saldo+otd);}}
+      if(oldTx.cuentaId){const oi=(S.cuentas||[]).findIndex(c=>c.id===oldTx.cuentaId);if(oi>=0){const oc=S.cuentas[oi];const ogmf=oldTx.gmfIncluido?0:(oc.gmf&&oc.tipo!=='tarjeta'?Math.round(oldTx.mo*0.004):0);const otd=oldTx.tp==='Gasto'?oldTx.mo+ogmf:-oldTx.mo;S.cuentas[oi].saldo=Math.round(S.cuentas[oi].saldo+otd);}}
       if(!oldTx.cuentaId&&oldTx.cuentaId!==undefined&&S.cuentas.findIndex(c=>c.id===oldTx.cuentaId)<0){const odelta=oldTx.tp==='Gasto'?oldTx.mo:-oldTx.mo;S.config.efectivoBal=Math.max(0,(S.config.efectivoBal||0)+odelta);}
-      S.meses[cur].txns[idx]={...oldTx,desc,mo,dt,tp:txType,cat:txType==='Gasto'?selCat:'ingreso',destino,cuentaId,cuotas};
+      S.meses[cur].txns[idx]={...oldTx,desc,mo:moFinal,dt,tp:txType,cat:txType==='Gasto'?selCat:'ingreso',destino,cuentaId,cuotas,gmfIncluido:_gmfMonto>0};
     }
   }
-  else{S.meses[cur].txns.push({id:Date.now()+Math.random().toString(36).slice(2,5),desc,mo,dt,tp:txType,cat:txType==='Gasto'?selCat:'ingreso',destino,cuentaId,cuotas});}
-  if(cuentaId){const cIdx=(S.cuentas||[]).findIndex(c=>c.id===cuentaId);if(cIdx>=0){const cuenta=S.cuentas[cIdx];if(cuenta.tipo==='tarjeta'){if(txType==='Gasto'){S.cuentas[cIdx].saldo=Math.round((+S.cuentas[cIdx].saldo||0)+mo);const cupoDisp=Math.max(0,(+cuenta.cupo||0)-S.cuentas[cIdx].saldo);const pagoMes=cuotas>1?Math.round(mo/cuotas):mo;showToast(cuotas>1?`💳 ${cuotas} cuotas · ${fmt(pagoMes)}/mes · Cupo disponible: ${fmt(cupoDisp)}`:`💳 Contado · Cupo disponible: ${fmt(cupoDisp)}`,'info');}else{S.cuentas[cIdx].saldo=Math.round(Math.max(0,(+S.cuentas[cIdx].saldo||0)-mo));}}else{const gmfMonto=cuenta.gmf?Math.round(mo*0.004):0;const totalDesc=txType==='Gasto'?mo+gmfMonto:-mo;S.cuentas[cIdx].saldo=Math.round(S.cuentas[cIdx].saldo-totalDesc);if(gmfMonto>0)showToast(`4×1000: ${fmt(gmfMonto)} descontado de ${cuenta.n}`,'warn');}}}
+  else{S.meses[cur].txns.push({id:Date.now()+Math.random().toString(36).slice(2,5),desc,mo:moFinal,dt,tp:txType,cat:txType==='Gasto'?selCat:'ingreso',destino,cuentaId,cuotas,gmfIncluido:_gmfMonto>0});}
+  if(cuentaId){const cIdx=(S.cuentas||[]).findIndex(c=>c.id===cuentaId);if(cIdx>=0){const cuenta=S.cuentas[cIdx];if(cuenta.tipo==='tarjeta'){if(txType==='Gasto'){S.cuentas[cIdx].saldo=Math.round((+S.cuentas[cIdx].saldo||0)+mo);const cupoDisp=Math.max(0,(+cuenta.cupo||0)-S.cuentas[cIdx].saldo);const pagoMes=cuotas>1?Math.round(mo/cuotas):mo;showToast(cuotas>1?`💳 ${cuotas} cuotas · ${fmt(pagoMes)}/mes · Cupo disponible: ${fmt(cupoDisp)}`:`💳 Contado · Cupo disponible: ${fmt(cupoDisp)}`,'info');}else{S.cuentas[cIdx].saldo=Math.round(Math.max(0,(+S.cuentas[cIdx].saldo||0)-mo));}}else{S.cuentas[cIdx].saldo=Math.round(S.cuentas[cIdx].saldo-(_gmfMonto>0?moFinal:(txType==='Gasto'?mo:-mo)));if(_gmfMonto>0)showToast(`4×1000: ${fmt(_gmfMonto)} incluido en el gasto (total ${fmt(moFinal)})`,'warn');}}}
   else if(cuentaRaw==='efectivo'){const efDelta=txType==='Gasto'?-mo:mo;S.config.efectivoBal=Math.max(0,(S.config.efectivoBal||0)+efDelta);}
   save();
   if(txType==='Gasto')checkBudgetAlerts();
