@@ -572,7 +572,46 @@ function calcSnap(m,txns){
 }
 
 function txns(){return(S.meses[mk()]?.txns)||[];}
-function currentQ(){return new Date().getDate()<=15?'q1':'q2';}
+
+// ── CALENDARIO COLOMBIANO ──
+function colFestivos(year){
+  const h=new Set();
+  const add=(m,d)=>h.add(`${year}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
+  // Fijos
+  add(1,1);add(5,1);add(7,20);add(8,7);add(12,8);add(12,25);
+  // Puente (siguiente lunes si no es lunes)
+  const puente=(m,d)=>{const dt=new Date(year,m-1,d);const dow=dt.getDay();const diff=dow===1?0:(dow===0?1:8-dow);const nd=new Date(year,m-1,d+diff);add(nd.getMonth()+1,nd.getDate());};
+  puente(1,6);puente(3,19);puente(6,29);puente(8,15);puente(10,12);puente(11,1);puente(11,11);
+  // Semana Santa y religiosos (basados en Pascua — Cómputo Gregoriano)
+  const a=year%19,b=Math.floor(year/100),c=year%100;
+  const dd2=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25);
+  const g=Math.floor((b-f+1)/3),hh=(19*a+b-dd2-g+15)%30;
+  const i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-hh-k)%7;
+  const mm=Math.floor((a+11*hh+22*l)/451);
+  const em=Math.floor((hh+l-7*mm+114)/31),ed=((hh+l-7*mm+114)%31)+1;
+  const easter=new Date(year,em-1,ed);
+  const eAdd=days=>{const dt=new Date(easter);dt.setDate(dt.getDate()+days);add(dt.getMonth()+1,dt.getDate());};
+  const ePuente=days=>{const dt=new Date(easter);dt.setDate(dt.getDate()+days);const dow=dt.getDay();dt.setDate(dt.getDate()+(dow===1?0:dow===0?1:8-dow));add(dt.getMonth()+1,dt.getDate());};
+  eAdd(-3);eAdd(-2);           // Jueves y Viernes Santo
+  ePuente(39);ePuente(60);ePuente(68); // Ascensión, Corpus Christi, Sagrado Corazón
+  return h;
+}
+function esDiaHabil(dt,fest){
+  const dow=dt.getDay();if(dow===0||dow===6)return false;
+  return!fest.has(`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`);
+}
+function ultimoHabil(year,month,day){
+  const fest=colFestivos(year);
+  const dt=new Date(year,month-1,day);
+  while(!esDiaHabil(dt,fest))dt.setDate(dt.getDate()-1);
+  return dt.getDate();
+}
+function qCutoffs(){
+  const now=new Date(),y=now.getFullYear(),m=now.getMonth()+1;
+  const ultimo=new Date(y,m,0).getDate();
+  return{cut1:ultimoHabil(y,m,15),cut2:ultimoHabil(y,m,ultimo),lastDay:ultimo};
+}
+function currentQ(){const d=new Date().getDate();return d<=qCutoffs().cut1?'q1':'q2';}
 function totIng(){
   if(S.config.quincenas?.activo)return(+S.config.quincenas.q1||0)+(+S.config.quincenas.q2||0);
   return S.config.ingresos.reduce((s,i)=>s+(+i.m||0),0);
@@ -842,7 +881,7 @@ function renderSoloTarjetas(){
 }
 
 // ── PAGOS DEL MES ──
-function curQ(){return new Date().getDate()<=15?'q1':'q2';}
+function curQ(){return currentQ();}
 function pagosMes(){
   const items=[];
   const qOn=S.config.quincenas?.activo;
@@ -975,7 +1014,8 @@ function rQCard(){
   const curV=cq==='q1'?q1:q2,otherV=cq==='q1'?q2:q1;
   const curC=curV>=0?'var(--green)':'var(--red)',otherC=otherV>=0?'var(--green)':'var(--red)';
   const curLbl=cq==='q1'?'1ª Quincena':'2ª Quincena',otherLbl=cq==='q1'?'2ª Quincena':'1ª Quincena';
-  const daysTxt=cq==='q1'?'días 1–15':'días 16–fin';
+  const {cut1,cut2,lastDay}=qCutoffs();
+  const daysTxt=cq==='q1'?`días 1–${cut1}`:`días ${cut1+1}–${cut2}`;
   return`<div class="card" style="background:linear-gradient(135deg,rgba(191,90,242,.12),rgba(10,132,255,.07))">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div class="card-ttl" style="margin:0">Plan Quincenas</div>
