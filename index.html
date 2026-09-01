@@ -539,7 +539,8 @@ function defState(){
       recurrentes:[],
       widgets:{},
       efectivoBal:0,
-      cuentaNomina:''
+      cuentaNomina:'',
+      nominaLog:{}
     },
     meses:{},archivos:{},cats:[],metas:[],cuentas:[],lastMk:mk()
   };
@@ -550,7 +551,7 @@ let S=defState();
 function mk(d){const x=d||new Date();return`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}`;}
 
 function load(){
-  try{const r=localStorage.getItem(SK);if(r){const p=JSON.parse(r);S={...defState(),...p};S.config={...defState().config,...p.config};S.config.presup={...defState().config.presup,...(p.config?.presup||{})};if(!('mascotas' in S.config.presup))S.config.presup.mascotas=0;if(!('personal' in S.config.presup))S.config.presup.personal=0;S.config.quincenas={...defState().config.quincenas,...(p.config?.quincenas||{})};if(!S.cats||!S.cats.length)S.cats=DEF_CATS.map(c=>({...c}));if(!S.metas)S.metas=[];if(!S.config.recurrentes)S.config.recurrentes=[];S.config.deudas=(S.config.deudas||[]).map(d=>({saldo:0,tasa:0,abonos:[],...d}));if(!S.cuentas)S.cuentas=[];S.cuentas=S.cuentas.map(c=>({tipo:'cuenta',...c}));if(!('efectivoBal' in S.config))S.config.efectivoBal=0;if(!('cuentaNomina' in S.config))S.config.cuentaNomina='';}}catch(e){}
+  try{const r=localStorage.getItem(SK);if(r){const p=JSON.parse(r);S={...defState(),...p};S.config={...defState().config,...p.config};S.config.presup={...defState().config.presup,...(p.config?.presup||{})};if(!('mascotas' in S.config.presup))S.config.presup.mascotas=0;if(!('personal' in S.config.presup))S.config.presup.personal=0;S.config.quincenas={...defState().config.quincenas,...(p.config?.quincenas||{})};if(!S.cats||!S.cats.length)S.cats=DEF_CATS.map(c=>({...c}));if(!S.metas)S.metas=[];if(!S.config.recurrentes)S.config.recurrentes=[];S.config.deudas=(S.config.deudas||[]).map(d=>({saldo:0,tasa:0,abonos:[],...d}));if(!S.cuentas)S.cuentas=[];S.cuentas=S.cuentas.map(c=>({tipo:'cuenta',...c}));if(!('efectivoBal' in S.config))S.config.efectivoBal=0;if(!('cuentaNomina' in S.config))S.config.cuentaNomina='';if(!S.config.nominaLog)S.config.nominaLog={};}}catch(e){}
 }
 
 function save(){try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}}
@@ -893,19 +894,8 @@ function renderSoloCuentas(){
   const ctas=(S.cuentas||[]).filter(c=>(c.tipo||'cuenta')==='cuenta');
   const efBal=+(S.config.efectivoBal||0);
   if(!ctas.length&&efBal===0)return'';
-  // Nómina proyectada: en día de corte Q2 (cut2), mostrar ingreso Q1 en cuenta nómina
-  const qOn=S.config.quincenas?.activo;
-  const nomId=S.config.cuentaNomina||'';
-  const {cut2}=qCutoffs();
-  const hoyD=new Date().getDate();
-  const esPayday=qOn&&nomId&&hoyD>=cut2;
-  const nomIncome=esPayday?(+(S.config.quincenas?.q1)||0):0;
-  const tot=ctas.reduce((s,c)=>s+(+c.saldo||0),0)+efBal+nomIncome;
-  const filas=ctas.map(c=>{
-    const esNom=esPayday&&c.id===nomId;
-    const balMostrado=(+c.saldo||0)+(esNom?nomIncome:0);
-    return`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--sep)"><div style="font-size:14px;font-weight:500">${esc(c.n)}${c.gmf?'<span style="font-size:10px;color:var(--orange);margin-left:6px">4×1000</span>':''}${esNom?'<span style="font-size:10px;color:var(--blue);margin-left:6px;font-weight:700">📥 nómina</span>':''}</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--green)">${fmt(balMostrado)}${esNom?`<span style="font-size:10px;color:var(--blue);margin-left:4px">+${fmt(nomIncome)}</span>`:''}</div></div>`;
-  }).join('')
+  const tot=ctas.reduce((s,c)=>s+(+c.saldo||0),0)+efBal;
+  const filas=ctas.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--sep)"><div style="font-size:14px;font-weight:500">${esc(c.n)}${c.gmf?'<span style="font-size:10px;color:var(--orange);margin-left:6px">4×1000</span>':''}</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--green)">${fmt(+c.saldo||0)}</div></div>`).join('')
     +`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--sep)"><div style="font-size:14px;font-weight:500">💵 Efectivo</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--green)">${fmt(efBal)}</div></div>`;
   return`<div class="card"><div class="card-ttl" style="margin-bottom:12px">Mis Cuentas</div>${filas}<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 2px"><div style="font-size:13px;color:var(--text2);font-weight:600">Total</div><div style="font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;color:${tot>=0?'var(--green)':'var(--red)'}">${fmt(tot)}</div></div></div>`;
 }
@@ -1032,7 +1022,29 @@ function confirmarPagoFijo(item){
   _pagandoItemId=null;
 }
 
+function checkAutoNomina(){
+  if(!S.config.quincenas?.activo)return;
+  const nomId=S.config.cuentaNomina||'';if(!nomId)return;
+  const {cut1,cut2}=qCutoffs();
+  const today=new Date(),d=today.getDate();
+  const dateStr=today.toISOString().split('T')[0];
+  if(!S.config.nominaLog)S.config.nominaLog={};
+  if(S.config.nominaLog[dateStr])return; // ya procesado hoy
+  let income=0,label='';
+  if(d===cut1){income=+(S.config.quincenas?.q1)||0;label='Nómina 1ª quincena';}
+  else if(d>=cut2){income=+(S.config.quincenas?.q2)||0;label='Nómina 2ª quincena';}
+  if(!income)return;
+  const cur=mk();if(!S.meses[cur])S.meses[cur]={txns:[]};
+  if(S.meses[cur].txns.some(t=>t.autoNomina&&t.dt===dateStr))return; // ya existe
+  S.meses[cur].txns.push({id:'auto-nom-'+dateStr,desc:'💰 '+label,mo:income,dt:dateStr,tp:'Ingreso',cat:'ingreso',destino:'',cuentaId:nomId,cuotas:1,autoNomina:true});
+  const cIdx=(S.cuentas||[]).findIndex(c=>c.id===nomId);
+  if(cIdx>=0)S.cuentas[cIdx].saldo=Math.round((+S.cuentas[cIdx].saldo||0)+income);
+  S.config.nominaLog[dateStr]=true;
+  save();
+}
+
 function render(){
+  checkAutoNomina();
   const el=document.getElementById('content');if(!el)return;
   el.style.opacity='0';el.style.transform='translateY(8px)';
   const doRender=()=>{
