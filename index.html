@@ -1327,7 +1327,32 @@ function saveTx(){
 
 function delTx(id){
   if(!confirm('¿Eliminar esta transacción?'))return;
-  const cur=mk();if(S.meses[cur])S.meses[cur].txns=S.meses[cur].txns.filter(t=>t.id!==id);
+  const cur=mk();if(!S.meses[cur])return;
+  const tx=S.meses[cur].txns.find(t=>t.id===id);
+  if(tx){
+    // Revertir saldo de cuenta
+    if(tx.cuentaId){
+      const cIdx=(S.cuentas||[]).findIndex(c=>c.id===tx.cuentaId);
+      if(cIdx>=0){
+        const cuenta=S.cuentas[cIdx];
+        if(cuenta.tipo==='tarjeta'){
+          // TC: gasto sube saldo, pago baja saldo
+          const delta=tx.tp==='Gasto'?-tx.mo:tx.mo;
+          S.cuentas[cIdx].saldo=Math.round(Math.max(0,S.cuentas[cIdx].saldo+delta));
+        } else {
+          // Cuenta normal: revertir monto (ya incluye GMF si gmfIncluido)
+          const ogmf=tx.gmfIncluido?0:(cuenta.gmf?Math.round(tx.mo*0.004):0);
+          const delta=tx.tp==='Gasto'?tx.mo+ogmf:-tx.mo;
+          S.cuentas[cIdx].saldo=Math.round(S.cuentas[cIdx].saldo+delta);
+        }
+      }
+    } else if(tx.cuentaId===''||tx.cuentaId===undefined){
+      // Efectivo
+      const efDelta=tx.tp==='Gasto'?tx.mo:-tx.mo;
+      S.config.efectivoBal=Math.max(0,(S.config.efectivoBal||0)+efDelta);
+    }
+  }
+  S.meses[cur].txns=S.meses[cur].txns.filter(t=>t.id!==id);
   save();render();
 }
 
