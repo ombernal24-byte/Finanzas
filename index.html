@@ -361,46 +361,9 @@ body.modal-open #content{overflow:hidden}
       <div class="modal-ttl" id="tx-ttl" style="margin:0">Nueva Transacción</div>
       <button onclick="closeModal('m-tx')" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--chip-bg);color:var(--text2);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
     </div>
-    <div class="type-tgl">
-      <button class="type-btn tg-gasto" onclick="setType('Gasto')" id="btn-g">↑ Gasto</button>
-      <button class="type-btn" onclick="setType('Ingreso')" id="btn-i">↓ Ingreso</button>
-    </div>
-    <div class="fgroup">
-      <label class="flbl">Descripción</label>
-      <input class="finput" id="tx-desc" type="text" placeholder="ej. Mercado, Gasolina..." autocomplete="off">
-    </div>
-    <div class="fgroup">
-      <label class="flbl">Monto</label>
-      <input class="finput" id="tx-monto" type="text" inputmode="decimal" placeholder="0" oninput="fmtAmtInput(this);actualizarPagoMes()">
-    </div>
-    <div id="cat-sec">
-      <label class="flbl">Categoría</label>
-      <div class="chips" id="cat-chips"></div>
-    </div>
-    <div id="destino-sec" style="display:none">
-      <div class="fgroup">
-        <label class="flbl">Destinar a categoría (opcional)</label>
-        <select class="finput" id="tx-destino" style="background:var(--select-bg)">
-          <option value="">— Sin destino específico —</option>
-        </select>
-      </div>
-    </div>
-    <div class="fgroup">
-      <label class="flbl">Fecha</label>
-      <input class="finput" id="tx-fecha" type="date">
-    </div>
-    <div class="fgroup" id="cuenta-sec">
-      <label class="flbl">Cuenta <span style="color:var(--red)">*</span></label>
-      <div id="cuenta-btns" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:2px"></div>
-      <input type="hidden" id="tx-cuenta" value="">
-    </div>
-    <div class="fgroup" id="cuotas-sec" style="display:none">
-      <label class="flbl">Cuotas</label>
-      <div id="cuotas-btns" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:2px"></div>
-      <input type="hidden" id="tx-cuotas" value="1">
-      <div id="pago-mes-info" style="margin-top:8px;padding:10px;background:rgba(10,132,255,.1);border-radius:10px;font-size:13px;color:var(--blue);display:none"></div>
-    </div>
-    <button class="btn-main" onclick="saveTx()">Guardar</button>
+    <div id="tx-step-ind"></div>
+    <div id="tx-step-body"></div>
+    <div id="tx-step-nav" style="margin-top:16px"></div>
   </div>
 </div>
 
@@ -1216,105 +1179,168 @@ function rRect(ctx,x,y,w,h,r){
   ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h);ctx.lineTo(x,y+h);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
 }
 
-let txType='Gasto',txEditId=null,selCat='transporte';
+let txType='Gasto',txEditId=null,selCat='transporte',txStep=1;
+let _txDesc='',_txMonto='',_txFecha='',_txCuenta=null,_txCuotas=1,_txDestino='';
+
+function _ldDate(){const n=new Date();return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;}
 
 function openTx(editId){
-  txEditId=editId||null;txType='Gasto';selCat='transporte';
-  document.getElementById('tx-fecha').value=new Date().toISOString().split('T')[0];
-  document.getElementById('tx-desc').value='';document.getElementById('tx-monto').value='';
+  txEditId=editId||null;
+  const t=editId?txns().find(x=>x.id===editId):null;
+  if(editId&&t){
+    txType=t.tp;selCat=t.cat||'otro';
+    _txDesc=t.desc||'';_txMonto=Math.round(t.mo).toLocaleString('es-CO');
+    _txFecha=t.dt;_txCuenta=t.cuentaId??null;_txCuotas=t.cuotas||1;_txDestino=t.destino||'';
+    txStep=2;
+  } else {
+    txType='Gasto';selCat='transporte';
+    _txDesc='';_txMonto='';_txFecha=_ldDate();_txCuenta=null;_txCuotas=1;_txDestino='';
+    txStep=1;
+  }
   document.getElementById('tx-ttl').textContent=editId?'Editar Transacción':'Nueva Transacción';
-  const t=editId?txns().find(t=>t.id===editId):null;
-  if(editId&&t){txType=t.tp;selCat=t.cat||'otro';document.getElementById('tx-desc').value=t.desc||'';document.getElementById('tx-monto').value=Math.round(t.mo).toLocaleString('es-CO');document.getElementById('tx-fecha').value=t.dt;if(document.getElementById('tx-destino'))document.getElementById('tx-destino').value=t.destino||'';}
-  const cuentaBtns=document.getElementById('cuenta-btns');
-  const cuentaInput=document.getElementById('tx-cuenta');
-  if(cuentaBtns){
-    const cuentas=S.cuentas||[];
-    const initCuenta=(editId&&t)?t.cuentaId||'':'';
-    if(cuentaInput)cuentaInput.value=initCuenta;
-    const allCtas=[{id:'efectivo',n:'💵 Efectivo',gmf:false,tipo:'cuenta'},...cuentas];
-    cuentaBtns.innerHTML=allCtas.map(c=>{
+  renderTxStep();openModal('m-tx');
+}
+
+function renderTxStep(){
+  const body=document.getElementById('tx-step-body');
+  const nav=document.getElementById('tx-step-nav');
+  const ind=document.getElementById('tx-step-ind');
+  if(!body||!nav)return;
+  const editing=!!txEditId;
+  if(ind){
+    const dots=[1,2,3,4].filter(s=>s>=(editing?2:1)).map(s=>`<div style="width:8px;height:8px;border-radius:50%;background:${txStep>=s?'var(--blue)':'var(--chip-bg)'};border:1.5px solid ${txStep>=s?'var(--blue)':'var(--card-b)'};transition:all .25s"></div>`).join('');
+    ind.innerHTML=`<div style="display:flex;gap:8px;justify-content:center;margin-bottom:18px">${dots}</div>`;
+  }
+  const typeColor=txType==='Gasto'?'var(--red)':'var(--green)';
+  const typeBg=txType==='Gasto'?'rgba(255,69,58,.12)':'rgba(48,209,88,.12)';
+  const typeLabel=txType==='Gasto'?'↑ Gasto':'↓ Ingreso';
+  const backBtn=`<button type="button" onclick="txPrev()" style="padding:13px 18px;border-radius:14px;border:1.5px solid var(--card-b);background:var(--card);color:var(--text);font-size:15px;font-weight:600;cursor:pointer;min-width:80px">← Atrás</button>`;
+  const nextBtn=`<button type="button" onclick="txNext()" class="btn-main" style="flex:1;margin:0">Siguiente →</button>`;
+  const saveBtn=`<button type="button" onclick="saveTx()" class="btn-main" style="flex:1;margin:0">💾 Guardar</button>`;
+
+  if(txStep===1){
+    body.innerHTML=`
+      <div style="text-align:center;padding:8px 0 20px">
+        <div style="font-size:15px;color:var(--text2);margin-bottom:24px;font-weight:500">¿Qué quieres registrar?</div>
+        <div style="display:flex;flex-direction:column;gap:14px;max-width:300px;margin:0 auto">
+          <button type="button" onclick="txSetType('Gasto')" style="padding:20px;border-radius:18px;border:2.5px solid ${txType==='Gasto'?'var(--red)':'var(--card-b)'};background:${txType==='Gasto'?'rgba(255,69,58,.12)':'var(--card)'};color:${txType==='Gasto'?'var(--red)':'var(--text)'};font-size:20px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;transition:all .18s">
+            <span style="font-size:32px">↑</span> Gasto
+          </button>
+          <button type="button" onclick="txSetType('Ingreso')" style="padding:20px;border-radius:18px;border:2.5px solid ${txType==='Ingreso'?'var(--green)':'var(--card-b)'};background:${txType==='Ingreso'?'rgba(48,209,88,.12)':'var(--card)'};color:${txType==='Ingreso'?'var(--green)':'var(--text)'};font-size:20px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;transition:all .18s">
+            <span style="font-size:32px">↓</span> Ingreso
+          </button>
+        </div>
+      </div>`;
+    nav.innerHTML=`<button type="button" onclick="txNext()" class="btn-main" style="width:100%;margin:0">Siguiente →</button>`;
+
+  } else if(txStep===2){
+    const presets=[5000,10000,20000,50000,100000,200000,500000];
+    const pBtns=presets.map(v=>{
+      const lbl=v>=1000000?`$${v/1000000}M`:`$${v/1000}K`;
+      return`<button type="button" onclick="txPreset(${v})" style="padding:7px 13px;border-radius:14px;border:1.5px solid var(--card-b);background:var(--card);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s">${lbl}</button>`;
+    }).join('');
+    body.innerHTML=`
+      <div style="margin-bottom:14px"><span style="padding:4px 12px;border-radius:10px;background:${typeBg};color:${typeColor};font-size:13px;font-weight:700">${typeLabel}</span></div>
+      <div class="fgroup"><label class="flbl">Descripción</label>
+        <input class="finput" id="tx-desc" type="text" placeholder="ej. Mercado, Gasolina..." autocomplete="off" value="${esc(_txDesc)}" oninput="_txDesc=this.value">
+      </div>
+      <div class="fgroup"><label class="flbl">Monto</label>
+        <input class="finput" id="tx-monto" type="text" inputmode="decimal" placeholder="0" value="${_txMonto}" oninput="fmtAmtInput(this);_txMonto=this.value">
+      </div>
+      <div style="margin-top:6px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:700;letter-spacing:.5px;text-transform:uppercase">Valores rápidos</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">${pBtns}</div>
+      </div>`;
+    nav.innerHTML=`<div style="display:flex;gap:10px">${!editing?backBtn:''}${nextBtn}</div>`;
+    setTimeout(()=>document.getElementById('tx-desc')?.focus(),80);
+
+  } else if(txStep===3){
+    let stepContent='';
+    if(txType==='Gasto'){
+      const catChips=CATS().map(c=>`<div class="chip${selCat===c.k?' on':''}" onclick="pickCat('${c.k}')">${c.ic} ${c.l.split('-')[0].split('/')[0].trim()}</div>`).join('');
+      stepContent=`<label class="flbl">Categoría</label><div class="chips" style="margin-top:8px">${catChips}</div>`;
+    } else {
+      const catOpts=CATS().map(c=>`<option value="${c.k}" ${_txDestino===c.k?'selected':''}>${c.ic} ${c.l}</option>`).join('');
+      stepContent=`<label class="flbl">Destinar a categoría (opcional)</label>
+        <select class="finput" id="tx-destino-sel" style="background:var(--select-bg);margin-top:8px" onchange="_txDestino=this.value">
+          <option value="">— Sin destino específico —</option>${catOpts}
+        </select>`;
+    }
+    body.innerHTML=`
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+        <span style="padding:4px 12px;border-radius:10px;background:${typeBg};color:${typeColor};font-size:13px;font-weight:700">${typeLabel}</span>
+        <span style="font-size:13px;color:var(--text3)">${esc(_txDesc)} · ${_txMonto}</span>
+      </div>${stepContent}`;
+    nav.innerHTML=`<div style="display:flex;gap:10px">${backBtn}${nextBtn}</div>`;
+
+  } else if(txStep===4){
+    const allCtas=[{id:'efectivo',n:'💵 Efectivo',gmf:false,tipo:'cuenta'},...(S.cuentas||[])];
+    const cBtns=allCtas.map(c=>{
       const esTarjeta=c.tipo==='tarjeta';
       const cupoDisp=esTarjeta?Math.max(0,(+c.cupo||0)-(+c.saldo||0)):0;
-      const sub=esTarjeta?`<span style="font-size:10px;opacity:.8;display:block">Cupo: ${fmt(cupoDisp)}</span>`:(c.gmf?'<span style="font-size:10px;color:var(--orange);margin-left:4px">4×1000</span>':'');
-      return`<button type="button" id="cbtn-${c.id}" onclick="selCuenta('${c.id}')" style="padding:7px 14px;border-radius:20px;border:1.5px solid var(--card-b);background:var(--card);color:var(--text);font-size:13px;font-weight:500;cursor:pointer;transition:all .18s;text-align:center">${esTarjeta?'💳 ':''} ${esc(c.n)}${sub}</button>`;
+      const sub=esTarjeta?`<span style="font-size:10px;opacity:.8;display:block">Cupo: ${fmt(cupoDisp)}</span>`:(c.gmf?'<span style="font-size:10px;color:var(--orange)">4×1000</span>':'');
+      const isSel=(c.id==='efectivo'&&_txCuenta==='')||(c.id!=='efectivo'&&_txCuenta===c.id);
+      return`<button type="button" onclick="txSelCuenta('${c.id}')" style="padding:7px 14px;border-radius:20px;border:1.5px solid ${isSel?'var(--blue)':'var(--card-b)'};background:${isSel?'var(--blue)':'var(--card)'};color:${isSel?'#fff':'var(--text)'};font-size:13px;font-weight:500;cursor:pointer;transition:all .18s;text-align:center">${esTarjeta?'💳 ':''} ${esc(c.n)}${sub}</button>`;
     }).join('');
-    if(initCuenta)selCuenta(initCuenta,false);
-  }
-  updTypeBtns();renderChips();openModal('m-tx');
-}
-
-function setType(t){txType=t;updTypeBtns();renderChips();}
-function selCuenta(id,save=true){
-  const input=document.getElementById('tx-cuenta');
-  if(input&&save)input.value=id==='efectivo'?'efectivo':id;
-  document.querySelectorAll('[id^="cbtn-"]').forEach(b=>{
-    const sel=b.id==='cbtn-'+id;
-    b.style.background=sel?'var(--blue)':'var(--card)';
-    b.style.color=sel?'#fff':'var(--text)';
-    b.style.borderColor=sel?'var(--blue)':'var(--card-b)';
-  });
-  // Mostrar cuotas si es tarjeta de crédito
-  const cuenta=(S.cuentas||[]).find(c=>c.id===id);
-  const esTarjeta=cuenta?.tipo==='tarjeta';
-  const cuotasSec=document.getElementById('cuotas-sec');
-  if(cuotasSec){
-    cuotasSec.style.display=(esTarjeta&&txType==='Gasto')?'block':'none';
-    if(esTarjeta&&txType==='Gasto'){
-      renderCuotasBtns();
-    }
+    const selAcct=allCtas.find(c=>(_txCuenta===c.id)||(c.id==='efectivo'&&_txCuenta===''));
+    const esTarjeta=selAcct?.tipo==='tarjeta';
+    const cuotasHTML=(esTarjeta&&txType==='Gasto')?`<div class="fgroup" style="margin-top:14px"><label class="flbl">Cuotas</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${[1,2,3,6,12,18,24,36].map(n=>{const isc=_txCuotas===n;return`<button type="button" onclick="txSelCuotas(${n})" style="padding:6px 12px;border-radius:18px;border:1.5px solid ${isc?'var(--purple)':'var(--card-b)'};background:${isc?'rgba(191,90,242,.2)':'var(--card)'};color:${isc?'var(--purple)':'var(--text)'};font-size:13px;font-weight:${isc?700:500};cursor:pointer">${n===1?'Contado':n+'x'}</button>`;}).join('')}</div>
+      ${(_txCuotas>1&&pn(_txMonto)>0)?`<div style="margin-top:8px;padding:10px;background:rgba(10,132,255,.1);border-radius:10px;font-size:13px;color:var(--blue)">💳 Pago aprox. <strong>${fmt(Math.round(pn(_txMonto)/_txCuotas))}/mes</strong> durante ${_txCuotas} meses</div>`:''}
+    </div>`:'';
+    const catLabel=txType==='Gasto'?(()=>{const c=CATS().find(x=>x.k===selCat);return c?` · ${c.ic} ${c.l}`:''})():'';
+    body.innerHTML=`
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+        <span style="padding:4px 12px;border-radius:10px;background:${typeBg};color:${typeColor};font-size:13px;font-weight:700">${typeLabel}</span>
+        <span style="font-size:13px;color:var(--text3)">${esc(_txDesc)} · ${_txMonto}${catLabel}</span>
+      </div>
+      <div class="fgroup"><label class="flbl">Cuenta <span style="color:var(--red)">*</span></label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${cBtns}</div>
+      </div>
+      <div class="fgroup"><label class="flbl">Fecha</label>
+        <input class="finput" id="tx-fecha" type="date" value="${_txFecha}" onchange="_txFecha=this.value">
+      </div>${cuotasHTML}`;
+    nav.innerHTML=`<div style="display:flex;gap:10px">${backBtn}${saveBtn}</div>`;
   }
 }
-function renderCuotasBtns(){
-  const opts=[1,2,3,6,12,18,24,36];
-  const cur=+(document.getElementById('tx-cuotas')?.value||1);
-  const btns=document.getElementById('cuotas-btns');
-  if(!btns)return;
-  btns.innerHTML=opts.map(n=>`<button type="button" id="qbtn-${n}" onclick="selCuotas(${n})" style="padding:6px 12px;border-radius:18px;border:1.5px solid ${cur===n?'var(--purple)':'var(--card-b)'};background:${cur===n?'rgba(191,90,242,.2)':'var(--card)'};color:${cur===n?'var(--purple)':'var(--text)'};font-size:13px;font-weight:${cur===n?'700':'500'};cursor:pointer;transition:all .18s">${n===1?'Contado':n+'x'}</button>`).join('');
-  actualizarPagoMes();
-}
-function selCuotas(n){
-  const input=document.getElementById('tx-cuotas');
-  if(input)input.value=n;
-  renderCuotasBtns();
-}
-function actualizarPagoMes(){
-  const info=document.getElementById('pago-mes-info');
-  if(!info)return;
-  const mo=pn(document.getElementById('tx-monto')?.value||'0');
-  const cuotas=+(document.getElementById('tx-cuotas')?.value||1);
-  if(!mo||mo<=0||cuotas<=1){info.style.display='none';return;}
-  const pagoMes=Math.round(mo/cuotas);
-  info.style.display='block';
-  info.innerHTML=`💳 Pago aprox. <strong>${fmt(pagoMes)}/mes</strong> durante ${cuotas} meses`;
-}
 
-function updTypeBtns(){
-  document.getElementById('btn-g').className='type-btn'+(txType==='Gasto'?' tg-gasto':'');
-  document.getElementById('btn-i').className='type-btn'+(txType==='Ingreso'?' tg-ingreso':'');
-  document.getElementById('cat-sec').style.display=txType==='Gasto'?'block':'none';
-  const dsec=document.getElementById('destino-sec');
-  if(dsec){dsec.style.display=txType==='Ingreso'?'block':'none';if(txType==='Ingreso'){const ds=document.getElementById('tx-destino');if(ds){ds.innerHTML='<option value="">— Sin destino específico —</option>'+CATS().map(c=>`<option value="${c.k}">${c.ic} ${c.l}</option>`).join('');}}}
-}
+function txSetType(t){txType=t;renderTxStep();}
+function txPreset(v){_txMonto=Math.round(v).toLocaleString('es-CO');const el=document.getElementById('tx-monto');if(el)el.value=_txMonto;}
+function txSelCuenta(id){_txCuenta=id==='efectivo'?'':id;renderTxStep();}
+function txSelCuotas(n){_txCuotas=n;renderTxStep();}
+function pickCat(k){selCat=k;renderTxStep();}
 
-function renderChips(){
-  const el=document.getElementById('cat-chips');if(!el)return;
-  el.innerHTML=CATS().map(c=>`<div class="chip${selCat===c.k?' on':''}" onclick="pickCat('${c.k}')">${c.ic} ${c.l.split('-')[0].split('/')[0].trim()}</div>`).join('');
+function txNext(){
+  if(txStep===1){txStep=2;renderTxStep();}
+  else if(txStep===2){
+    const dEl=document.getElementById('tx-desc');if(dEl)_txDesc=dEl.value.trim();
+    const mEl=document.getElementById('tx-monto');if(mEl)_txMonto=mEl.value;
+    if(!_txDesc.trim()){showToast('Ingresa una descripción','warn');return;}
+    if(!pn(_txMonto)||pn(_txMonto)<=0){showToast('Ingresa un monto válido','warn');return;}
+    txStep=3;renderTxStep();
+  }
+  else if(txStep===3){
+    const dsEl=document.getElementById('tx-destino-sel');if(dsEl)_txDestino=dsEl.value;
+    txStep=4;renderTxStep();
+  }
 }
-
-function pickCat(k){selCat=k;renderChips();}
+function txPrev(){if(txStep>1){txStep--;renderTxStep();}}
 
 function saveTx(){
-  const desc=document.getElementById('tx-desc').value.trim();
-  const mo=pn(document.getElementById('tx-monto').value);
-  const dt=document.getElementById('tx-fecha').value;
-  if(!desc){alert('Ingresa una descripción');return;}
-  if(!mo||mo<=0){alert('Ingresa un monto válido');return;}
-  if(!dt){alert('Selecciona una fecha');return;}
-  const destino=txType==='Ingreso'?(document.getElementById('tx-destino')?.value||''):'';
-  const cuentaRaw=document.getElementById('tx-cuenta')?.value||'';
-  if(!cuentaRaw){showToast('Selecciona una cuenta','warn');return;}
-  const cuentaId=cuentaRaw==='efectivo'?'':cuentaRaw;
-  const cuotas=+(document.getElementById('tx-cuotas')?.value||1);
+  const dEl=document.getElementById('tx-desc');if(dEl)_txDesc=dEl.value.trim();
+  const mEl=document.getElementById('tx-monto');if(mEl)_txMonto=mEl.value;
+  const fEl=document.getElementById('tx-fecha');if(fEl)_txFecha=fEl.value;
+  const desc=_txDesc.trim();
+  const mo=pn(_txMonto);
+  const dt=_txFecha;
+  if(!desc){showToast('Ingresa una descripción','warn');return;}
+  if(!mo||mo<=0){showToast('Ingresa un monto válido','warn');return;}
+  if(!dt){showToast('Selecciona una fecha','warn');return;}
+  const destino=txType==='Ingreso'?_txDestino:'';
+  if(_txCuenta===null){showToast('Selecciona una cuenta','warn');return;}
+  const cuentaId=_txCuenta;
+  const cuentaRaw=cuentaId===''?'efectivo':cuentaId;
+  const cuotas=_txCuotas||1;
   // GMF: para cuentas con 4×1000, el monto de la transacción ya incluye el impuesto
   const _acctGmf=cuentaId?(S.cuentas||[]).find(c=>c.id===cuentaId):null;
   const _gmfMonto=(_acctGmf&&_acctGmf.tipo!=='tarjeta'&&_acctGmf.gmf&&txType==='Gasto')?Math.round(mo*0.004):0;
