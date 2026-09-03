@@ -503,7 +503,8 @@ function defState(){
       widgets:{},
       efectivoBal:0,
       cuentaNomina:'',
-      nominaLog:{}
+      nominaLog:{},
+      migV:0
     },
     meses:{},archivos:{},cats:[],metas:[],cuentas:[],lastMk:mk()
   };
@@ -514,7 +515,22 @@ let S=defState();
 function mk(d){const x=d||new Date();return`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}`;}
 
 function load(){
-  try{const r=localStorage.getItem(SK);if(r){const p=JSON.parse(r);S={...defState(),...p};S.config={...defState().config,...p.config};S.config.presup={...defState().config.presup,...(p.config?.presup||{})};if(!('mascotas' in S.config.presup))S.config.presup.mascotas=0;if(!('personal' in S.config.presup))S.config.presup.personal=0;S.config.quincenas={...defState().config.quincenas,...(p.config?.quincenas||{})};if(!S.cats||!S.cats.length)S.cats=DEF_CATS.map(c=>({...c}));if(!S.metas)S.metas=[];if(!S.config.recurrentes)S.config.recurrentes=[];S.config.deudas=(S.config.deudas||[]).map(d=>({saldo:0,tasa:0,abonos:[],...d}));if(!S.cuentas)S.cuentas=[];S.cuentas=S.cuentas.map(c=>({tipo:'cuenta',...c}));if(!('efectivoBal' in S.config))S.config.efectivoBal=0;if(!('cuentaNomina' in S.config))S.config.cuentaNomina='';if(!S.config.nominaLog)S.config.nominaLog={};}}catch(e){}
+  try{const r=localStorage.getItem(SK);if(r){const p=JSON.parse(r);S={...defState(),...p};S.config={...defState().config,...p.config};S.config.presup={...defState().config.presup,...(p.config?.presup||{})};if(!('mascotas' in S.config.presup))S.config.presup.mascotas=0;if(!('personal' in S.config.presup))S.config.presup.personal=0;S.config.quincenas={...defState().config.quincenas,...(p.config?.quincenas||{})};if(!S.cats||!S.cats.length)S.cats=DEF_CATS.map(c=>({...c}));if(!S.metas)S.metas=[];if(!S.config.recurrentes)S.config.recurrentes=[];S.config.deudas=(S.config.deudas||[]).map(d=>({saldo:0,tasa:0,abonos:[],...d}));if(!S.cuentas)S.cuentas=[];S.cuentas=S.cuentas.map(c=>({tipo:'cuenta',...c}));if(!('efectivoBal' in S.config))S.config.efectivoBal=0;if(!('cuentaNomina' in S.config))S.config.cuentaNomina='';if(!S.config.nominaLog)S.config.nominaLog={};if(!S.config.migV)S.config.migV=0;
+    // Migración v1: reducir saldo de deudas por pagos ya registrados sin saldoDescontado
+    if(S.config.migV<1){
+      (S.config.deudas||[]).forEach((d,dIdx)=>{
+        const allTxns=[];
+        Object.values(S.meses||{}).forEach(m=>(m.txns||[]).forEach(t=>allTxns.push(t)));
+        Object.values(S.archivos||{}).forEach(a=>(a.txns||[]).forEach(t=>allTxns.push(t)));
+        const debtTxns=allTxns.filter(t=>!t.saldoDescontado&&t.tp==='Gasto'&&(t.pagoMesId===`deuda-${dIdx}`||t.desc===`Cuota ${d.n}`||t.desc===`Abono ${d.n}`)).sort((a,b)=>a.dt.localeCompare(b.dt));
+        if(!debtTxns.length)return;
+        let s=+d.saldo||0;const tasa=+d.tasa||0;const tm=tasa/100/12;
+        debtTxns.forEach(t=>{const intMes=tm>0?Math.round(s*tm):0;const cap=Math.max(0,t.mo-intMes);s=Math.max(0,s-cap);t.saldoDescontado=true;});
+        S.config.deudas[dIdx].saldo=Math.round(s);
+      });
+      S.config.migV=1;
+    }
+  }}catch(e){}
 }
 
 function save(){try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}}
@@ -1753,8 +1769,12 @@ function confirmarPagoCuota(){
   const cur=mk();if(!S.meses[cur])S.meses[cur]={txns:[]};
   const cuentaId=cuentaRaw==='efectivo'?'':cuentaRaw;
   const desc=cuotaCompleta?`Cuota ${d.n}`:`Abono ${d.n}`;
-  S.meses[cur].txns.push({id:Date.now()+Math.random().toString(36).slice(2,5),desc,mo,dt,tp:'Gasto',cat:'tarjeta',destino:'',cuentaId,cuotas:1,pagoMesId:_pagandoItemId||`deuda-${pagoCuotaIdx}`});
+  S.meses[cur].txns.push({id:Date.now()+Math.random().toString(36).slice(2,5),desc,mo,dt,tp:'Gasto',cat:'tarjeta',destino:'',cuentaId,cuotas:1,pagoMesId:_pagandoItemId||`deuda-${pagoCuotaIdx}`,saldoDescontado:true});
   _pagandoItemId=null;
+  // Reducir saldo de la deuda: descontar interés del mes, el resto es abono a capital
+  const tasa=+d.tasa||0;const tm=tasa/100/12;const intMes=tm>0?Math.round((+d.saldo||0)*tm):0;
+  const capitalAbonado=Math.max(0,mo-intMes);
+  S.config.deudas[pagoCuotaIdx].saldo=Math.max(0,Math.round((+d.saldo||0)-capitalAbonado));
   if(cuentaId){const cIdx=(S.cuentas||[]).findIndex(c=>c.id===cuentaId);if(cIdx>=0){const cuenta=S.cuentas[cIdx];const gmf=cuenta.gmf?Math.round(mo*0.004):0;S.cuentas[cIdx].saldo=Math.round(S.cuentas[cIdx].saldo-(mo+gmf));if(gmf>0)showToast(`4×1000: ${fmt(gmf)} descontado`,'warn');}}
   else if(cuentaRaw==='efectivo'){S.config.efectivoBal=Math.max(0,(S.config.efectivoBal||0)-mo);}
   save();closeModal('m-pago-cuota');render();
