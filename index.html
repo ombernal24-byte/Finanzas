@@ -973,7 +973,7 @@ function confirmarPagoFijo(item){
   if(!cuentaRaw){showToast('Selecciona una cuenta','warn');return;}
   const mo=item.monto;
   const cur=mk();if(!S.meses[cur])S.meses[cur]={txns:[]};
-  const dt=new Date().toISOString().slice(0,10);
+  const _nf=new Date();const dt=`${_nf.getFullYear()}-${String(_nf.getMonth()+1).padStart(2,'0')}-${String(_nf.getDate()).padStart(2,'0')}`;
   const cuentaId=cuentaRaw==='efectivo'?'':cuentaRaw;
   S.meses[cur].txns.push({id:Date.now()+Math.random().toString(36).slice(2,5),desc:item.nombre,mo,dt,tp:'Gasto',cat:'fijo',destino:'',cuentaId,cuotas:1,pagoMesId:item.id});
   if(cuentaId){const cIdx=(S.cuentas||[]).findIndex(c=>c.id===cuentaId);if(cIdx>=0){const cuenta=S.cuentas[cIdx];const gmf=cuenta.gmf?Math.round(mo*0.004):0;S.cuentas[cIdx].saldo=Math.round(S.cuentas[cIdx].saldo-(mo+gmf));if(gmf>0)showToast(`4×1000: ${fmt(gmf)} descontado`,'warn');}}
@@ -1705,13 +1705,23 @@ function rDeudaCard(){
 let pagoCuotaIdx=-1,pagoCuotaTipo='deuda';
 function abrirPagoCuota(idx){
   pagoCuotaIdx=idx;pagoCuotaTipo='deuda';
+  // Sincronizar con Pagos del Mes: si se abre desde el tracker, auto-asignar el pagoMesId
+  if(!_pagandoItemId)_pagandoItemId=`deuda-${idx}`;
   const d=S.config.deudas[idx];if(!d)return;
+  const cuotaDef=Math.round(+d.c||0);
   const content=document.getElementById('pago-cuota-content');
   if(content)content.innerHTML=`
-    <div style="background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:12px;margin-bottom:12px">
+    <div style="background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:12px;margin-bottom:14px">
       <div style="font-size:16px;font-weight:700">${esc(d.n)}</div>
-      <div style="font-size:24px;font-weight:800;color:var(--blue);font-variant-numeric:tabular-nums;margin-top:4px">${fmt(+d.c||0)}</div>
-      <div style="font-size:12px;color:var(--text2);margin-top:2px">Cuota mensual</div>
+      <div style="display:flex;gap:16px;margin-top:6px">
+        <div><div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px">Saldo pendiente</div><div style="font-size:18px;font-weight:800;color:var(--red);font-variant-numeric:tabular-nums">${fmt(+d.saldo||0)}</div></div>
+        <div><div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px">Cuota mensual</div><div style="font-size:18px;font-weight:800;color:var(--blue);font-variant-numeric:tabular-nums">${fmt(cuotaDef)}</div></div>
+      </div>
+    </div>
+    <div class="fgroup">
+      <label class="flbl">Monto a pagar</label>
+      <input class="finput" id="pago-cuota-monto" type="text" inputmode="decimal" value="${cuotaDef>0?cuotaDef.toLocaleString('es-CO'):''}" placeholder="${cuotaDef>0?fmt(cuotaDef):'0'}" oninput="fmtAmtInput(this)">
+      <div style="font-size:11px;color:var(--text3);margin-top:5px">Puedes ingresar un abono parcial o la cuota completa</div>
     </div>`;
   const cuentaBtns=document.getElementById('pago-cuota-cuentas');
   const cuentaInput=document.getElementById('pago-cuota-cuenta');
@@ -1736,20 +1746,24 @@ function confirmarPagoCuota(){
   const cuentaRaw=document.getElementById('pago-cuota-cuenta')?.value||'';
   if(!cuentaRaw){showToast('Selecciona una cuenta','warn');return;}
   const d=S.config.deudas[pagoCuotaIdx];if(!d)return;
-  const mo=+d.c||0;if(!mo){showToast('Esta deuda no tiene cuota configurada','warn');return;}
+  const mo=pn(document.getElementById('pago-cuota-monto')?.value||'0')||+d.c||0;
+  if(!mo||mo<=0){showToast('Ingresa el monto a pagar','warn');return;}
+  const cuotaCompleta=mo>=(+d.c||0);
+  const n=new Date();const dt=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
   const cur=mk();if(!S.meses[cur])S.meses[cur]={txns:[]};
-  const dt=new Date().toISOString().slice(0,10);
   const cuentaId=cuentaRaw==='efectivo'?'':cuentaRaw;
-  S.meses[cur].txns.push({id:Date.now()+Math.random().toString(36).slice(2,5),desc:`Cuota ${d.n}`,mo,dt,tp:'Gasto',cat:'tarjeta',destino:'',cuentaId,cuotas:1,pagoMesId:_pagandoItemId||undefined});
+  const desc=cuotaCompleta?`Cuota ${d.n}`:`Abono ${d.n}`;
+  S.meses[cur].txns.push({id:Date.now()+Math.random().toString(36).slice(2,5),desc,mo,dt,tp:'Gasto',cat:'tarjeta',destino:'',cuentaId,cuotas:1,pagoMesId:_pagandoItemId||`deuda-${pagoCuotaIdx}`});
   _pagandoItemId=null;
   if(cuentaId){const cIdx=(S.cuentas||[]).findIndex(c=>c.id===cuentaId);if(cIdx>=0){const cuenta=S.cuentas[cIdx];const gmf=cuenta.gmf?Math.round(mo*0.004):0;S.cuentas[cIdx].saldo=Math.round(S.cuentas[cIdx].saldo-(mo+gmf));if(gmf>0)showToast(`4×1000: ${fmt(gmf)} descontado`,'warn');}}
   else if(cuentaRaw==='efectivo'){S.config.efectivoBal=Math.max(0,(S.config.efectivoBal||0)-mo);}
   save();closeModal('m-pago-cuota');render();
-  showToast(`✅ Pago de ${fmt(mo)} registrado`,'ok');
+  showToast(cuotaCompleta?`✅ Cuota pagada ${fmt(mo)}`:`✅ Abono registrado ${fmt(mo)}`,'ok');
 }
 function abrirPagoTarjeta(tcId){
   const tc=(S.cuentas||[]).find(c=>c.id===tcId);if(!tc)return;
   pagoCuotaIdx=tcId;pagoCuotaTipo='tarjeta';
+  if(!_pagandoItemId)_pagandoItemId=`tc-${tcId}`;
   const content=document.getElementById('pago-cuota-content');
   if(content)content.innerHTML=`
     <div style="background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:12px;margin-bottom:12px">
@@ -1777,9 +1791,9 @@ function confirmarPagoTarjeta(){
   const mo=montoInput||+tc.saldo||0;
   if(!mo||mo<=0){showToast('Ingresa el monto a pagar','warn');return;}
   const cur=mk();if(!S.meses[cur])S.meses[cur]={txns:[]};
-  const dt=new Date().toISOString().slice(0,10);
+  const _nt=new Date();const dt=`${_nt.getFullYear()}-${String(_nt.getMonth()+1).padStart(2,'0')}-${String(_nt.getDate()).padStart(2,'0')}`;
   const cuentaId=cuentaRaw==='efectivo'?'':cuentaRaw;
-  S.meses[cur].txns.push({id:Date.now()+Math.random().toString(36).slice(2,5),desc:`Pago ${tc.n}`,mo,dt,tp:'Gasto',cat:'tarjeta',destino:'',cuentaId,cuotas:1,pagoMesId:_pagandoItemId||undefined});
+  S.meses[cur].txns.push({id:Date.now()+Math.random().toString(36).slice(2,5),desc:`Pago ${tc.n}`,mo,dt,tp:'Gasto',cat:'tarjeta',destino:'',cuentaId,cuotas:1,pagoMesId:_pagandoItemId||`tc-${tcId}`});
   _pagandoItemId=null;
   if(cuentaId){const cIdx=(S.cuentas||[]).findIndex(c=>c.id===cuentaId);if(cIdx>=0){const cuenta=S.cuentas[cIdx];const gmf=cuenta.gmf?Math.round(mo*0.004):0;S.cuentas[cIdx].saldo=Math.round(S.cuentas[cIdx].saldo-(mo+gmf));}}
   else if(cuentaRaw==='efectivo'){S.config.efectivoBal=Math.max(0,(S.config.efectivoBal||0)-mo);}
