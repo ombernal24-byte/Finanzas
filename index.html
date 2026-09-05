@@ -407,8 +407,9 @@ body.modal-open #content{overflow:hidden}
   <div class="sheet" style="max-height:92vh">
     <div class="handle"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
-      <div class="modal-ttl" id="catdetail-ttl" style="margin:0">Categoría</div>
-      <button onclick="closeModal('m-catdetail')" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--chip-bg);color:var(--text2);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">&times;</button>
+      <button onclick="closeModal('m-catdetail')" style="display:flex;align-items:center;gap:4px;border:none;background:none;color:var(--text2);font-size:14px;font-weight:600;cursor:pointer;padding:4px 0">&#x2190; Volver</button>
+      <div class="modal-ttl" id="catdetail-ttl" style="margin:0">Categor&iacute;a</div>
+      <div style="width:64px"></div>
     </div>
     <div id="catdetail-body"></div>
   </div>
@@ -1150,7 +1151,7 @@ function rPresup(){
       <div class="sum-row"><div class="sum-lbl">Total Presupuestado</div><div class="sum-val">${fmt(totPre())}</div></div>
       <div class="sum-row"><div class="sum-lbl">Gastado esta${qOn?' quincena':' semana'}</div><div class="sum-val" style="color:var(--red)">${fmt(txnsQ().filter(t=>t.tp==='Gasto').reduce((s,t)=>s+t.mo,0))}</div></div>
     </div>
-    <div class="card"><div class="card-ttl">Por Categoría${qOn?'<span style="font-size:11px;font-weight:400;color:var(--text2);margin-left:6px">&middot; quincena actual</span>':''}</div>${CATS().filter(c=>c.k!=='otro'&&catBudgetTotal(c.k)>0).map(c=>{const pre=catBudgetTotal(c.k),gas=gastoCat(c.k);const pct=pre>0?Math.min(100,gas/pre*100):0;const over=gas>pre&&pre>0;const env=ingresoEnvelope(c.k);return`<div class="prog-wrap"><div class="prog-head"><div class="prog-name">${c.ic} ${c.l}</div><div class="prog-amt" style="color:${over?'var(--red)':'var(--text2)'}">${fmt(gas)} ${pre>0?`/ ${fmt(pre)}`:'/ Sin límite'}</div></div>${pre>0?`<div class="prog-bg"><div class="prog-fill" style="width:${pct}%;background:${over?'var(--red)':c.col}"></div></div>`:''} ${env>0?`<div style="font-size:11px;color:var(--green);margin-top:2px">+${fmt(env)} extra (ingreso destinado)</div>`:''}     </div>`;}).join('')}${(()=>{const oIng=ingresoEnvelope('otro'),oGas=gastoCat('otro');if(!oIng&&!oGas)return'';const oBal=oIng-oGas;const pos=oBal>=0;return`<div class="prog-wrap" style="margin-top:${CATS().filter(c=>c.k!=='otro'&&catBudgetTotal(c.k)>0).length?'10':'0'}px;padding-top:${CATS().filter(c=>c.k!=='otro'&&catBudgetTotal(c.k)>0).length?'10':'0'}px;border-top:${CATS().filter(c=>c.k!=='otro'&&catBudgetTotal(c.k)>0).length?'1px solid var(--sep)':'none'}"><div class="prog-head"><div class="prog-name">📌 Otro (bolsillo libre)</div><div class="prog-amt" style="color:var(--text2)">Gastos: ${fmt(oGas)}</div></div>${oIng>0?`<div style="font-size:11px;color:var(--green);margin-bottom:4px">+${fmt(oIng)} ingresado</div>`:''}<div style="display:flex;align-items:center;gap:8px;margin-top:4px"><div style="font-size:13px;font-weight:700;color:${pos?'var(--green)':'var(--red)'}">Disponible: ${pos?'':'−'}${fmt(Math.abs(oBal))}</div><div style="font-size:11px;color:var(--text2)">${pos?'✅ A favor':'⚠️ En negativo'}</div></div></div>`;})()}</div>`;
+    <div class="card"><div class="card-ttl">Por Categoría${qOn?'<span style="font-size:11px;font-weight:400;color:var(--text2);margin-left:6px">&middot; quincena actual</span>':''}</div>${CATS().filter(c=>c.k!=='otro'&&catBudgetTotal(c.k)>0).map(c=>{const pre=catBudgetTotal(c.k),gas=gastoCat(c.k);const pct=pre>0?Math.min(100,gas/pre*100):0;const over=gas>pre&&pre>0;const env=ingresoEnvelope(c.k);return`<div class="prog-wrap" onclick="openCatDetail('${c.k}')" style="cursor:pointer;border-radius:10px;margin:-4px;padding:4px;transition:background .15s" onmouseenter="this.style.background='var(--chip-bg)'" onmouseleave="this.style.background=''"><div class="prog-head"><div class="prog-name">${c.ic} ${c.l}</div><div style="display:flex;align-items:center;gap:6px"><div class="prog-amt" style="color:${over?'var(--red)':'var(--text2)'}">${fmt(gas)} ${pre>0?`/ ${fmt(pre)}`:'/ Sin límite'}</div><span style="font-size:11px;color:var(--text3)">&#x203A;</span></div></div>${pre>0?`<div class="prog-bg"><div class="prog-fill" style="width:${pct}%;background:${over?'var(--red)':c.col}"></div></div>`:''} ${env>0?`<div style="font-size:11px;color:var(--green);margin-top:2px">+${fmt(env)} extra (ingreso destinado)</div>`:''}     </div>`;}).join('')}${(()=>{const oIng=ingresoEnvelope('otro'),oGas=gastoCat('otro');if(!oIng&&!oGas)return'';const oBal=oIng-oGas;const pos=oBal>=0;const hasRows=CATS().filter(c=>c.k!=='otro'&&catBudgetTotal(c.k)>0).length>0;return`<div class="prog-wrap" onclick="openCatDetail('otro')" style="cursor:pointer;border-radius:10px;margin:-4px;padding:4px;transition:background .15s;margin-top:${hasRows?'10':'0'}px;padding-top:${hasRows?'10':'0'}px;border-top:${hasRows?'1px solid var(--sep)':'none'}" onmouseenter="this.style.background='var(--chip-bg)'" onmouseleave="this.style.background=''"><div class="prog-head"><div class="prog-name">📌 Otro (bolsillo libre)</div><div style="display:flex;align-items:center;gap:6px"><div class="prog-amt" style="color:var(--text2)">Gastos: ${fmt(oGas)}</div><span style="font-size:11px;color:var(--text3)">&#x203A;</span></div></div>${oIng>0?`<div style="font-size:11px;color:var(--green);margin-bottom:4px">+${fmt(oIng)} ingresado</div>`:''}<div style="display:flex;align-items:center;gap:8px;margin-top:4px"><div style="font-size:13px;font-weight:700;color:${pos?'var(--green)':'var(--red)'}">Disponible: ${pos?'':'&minus;'}${fmt(Math.abs(oBal))}</div><div style="font-size:11px;color:var(--text2)">${pos?'✅ A favor':'⚠️ En negativo'}</div></div></div>`;})()}</div>`;
 }
 
 function rHist(){
@@ -2223,14 +2224,88 @@ function openCatDetail(k){
 function renderCatDetail(){
   const el=document.getElementById('catdetail-body');if(!el)return;
   const cat=CATS().find(c=>c.k===catDetailKey);if(!cat)return;
+  const R=45,CIRC=2*Math.PI*R;
+
+  // ── Caso especial: "Otro" (sin presupuesto fijo, base en envelope de ingresos) ──
+  if(catDetailKey==='otro'){
+    const inc=txns().filter(t=>t.tp==='Ingreso'&&t.destino==='otro').sort((a,b)=>b.dt.localeCompare(a.dt));
+    const gas=txns().filter(t=>t.tp==='Gasto'&&t.cat==='otro').sort((a,b)=>b.dt.localeCompare(a.dt));
+    const totalInc=inc.reduce((s,t)=>s+t.mo,0);
+    const totalGas=gas.reduce((s,t)=>s+t.mo,0);
+    const disp=totalInc-totalGas;
+    const pct=totalInc>0?Math.min(100,totalGas/totalInc*100):0;
+    const arc=pct/100*CIRC;
+    const col=cat.col||'#888';
+    const allTxns=[...inc,...gas].sort((a,b)=>b.dt.localeCompare(a.dt));
+    el.innerHTML=`
+      <div style="display:flex;justify-content:center;margin-bottom:16px">
+        <div style="position:relative;width:130px;height:130px">
+          <svg width="130" height="130" viewBox="0 0 100 100" style="transform:rotate(-90deg)">
+            <circle cx="50" cy="50" r="${R}" fill="none" stroke="var(--prog-track)" stroke-width="11"/>
+            <circle cx="50" cy="50" r="${R}" fill="none" stroke="${col}" stroke-width="11"
+              stroke-dasharray="${totalInc>0?arc.toFixed(2)+' '+(CIRC-arc).toFixed(2):'0 '+CIRC.toFixed(2)}"
+              stroke-linecap="round"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2">
+            <div style="font-size:9px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px">${disp>=0?'Libre':'Exceso'}</div>
+            <div style="font-size:14px;font-weight:800;color:${disp>=0?col:'var(--red)'};font-variant-numeric:tabular-nums">${fmt(Math.abs(disp))}</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:center;gap:14px;margin-bottom:16px;font-size:11px;font-weight:600">
+        <span style="display:flex;align-items:center;gap:4px;color:var(--text2)"><span style="width:10px;height:10px;border-radius:50%;background:${col};display:inline-block"></span>Gastado ${Math.round(pct)}%</span>
+        <span style="display:flex;align-items:center;gap:4px;color:var(--text2)"><span style="width:10px;height:10px;border-radius:50%;background:var(--prog-track);display:inline-block"></span>Libre ${Math.round(100-pct)}%</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+        <div style="background:var(--grn)18;border:1px solid var(--grn)33;border-radius:12px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Ingresos</div>
+          <div style="font-size:15px;font-weight:800;color:var(--grn);font-variant-numeric:tabular-nums">${fmt(totalInc)}</div>
+        </div>
+        <div style="background:var(--red)18;border:1px solid var(--red)33;border-radius:12px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Gastado</div>
+          <div style="font-size:15px;font-weight:800;color:var(--red);font-variant-numeric:tabular-nums">${fmt(totalGas)}</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--card-b);border-radius:12px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Disponible</div>
+          <div style="font-size:15px;font-weight:800;color:${disp>=0?'var(--grn)':'var(--red)'};font-variant-numeric:tabular-nums">${fmt(disp)}</div>
+        </div>
+      </div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">${allTxns.length} movimiento${allTxns.length!==1?'s':''}</div>
+      ${allTxns.length===0?`<div style="text-align:center;padding:20px;color:var(--text2)">Sin movimientos en esta categor&iacute;a</div>`:allTxns.map(t=>rTxItem(t,false)).join('')}
+    `;
+    return;
+  }
+
+  // ── Categoría normal ──────────────────────────────────────────────────────
   const txlist=txns().filter(t=>t.tp==='Gasto'&&t.cat===catDetailKey).sort((a,b)=>b.dt.localeCompare(a.dt));
   const total=txlist.reduce((s,t)=>s+t.mo,0);
   const pre=catBudgetTotal(catDetailKey);
   const pct=pre>0?Math.min(100,total/pre*100):0;
+  const libre=Math.max(0,pre-total);
+  const arc=pct/100*CIRC;
   const byDay={};txlist.forEach(t=>{byDay[t.dt]=(byDay[t.dt]||0)+t.mo;});
   const days=Object.entries(byDay).sort((a,b)=>a[0].localeCompare(b[0]));
   const maxDay=days.length?Math.max(...days.map(d=>d[1])):1;
   el.innerHTML=`
+    ${pre>0?`
+    <div style="display:flex;justify-content:center;margin-bottom:16px">
+      <div style="position:relative;width:130px;height:130px">
+        <svg width="130" height="130" viewBox="0 0 100 100" style="transform:rotate(-90deg)">
+          <circle cx="50" cy="50" r="${R}" fill="none" stroke="var(--prog-track)" stroke-width="11"/>
+          <circle cx="50" cy="50" r="${R}" fill="none" stroke="${cat.col}" stroke-width="11"
+            stroke-dasharray="${total>0?arc.toFixed(2)+' '+(CIRC-arc).toFixed(2):'0 '+CIRC.toFixed(2)}"
+            stroke-linecap="round"/>
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2">
+          <div style="font-size:9px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px">${pct>=100?'Exceso':'Libre'}</div>
+          <div style="font-size:14px;font-weight:800;color:${pct>=100?'var(--red)':cat.col};font-variant-numeric:tabular-nums">${fmt(pct>=100?total-pre:libre)}</div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:center;gap:14px;margin-bottom:16px;font-size:11px;font-weight:600">
+      <span style="display:flex;align-items:center;gap:4px;color:var(--text2)"><span style="width:10px;height:10px;border-radius:50%;background:${cat.col};display:inline-block"></span>Usado ${Math.round(pct)}%</span>
+      <span style="display:flex;align-items:center;gap:4px;color:var(--text2)"><span style="width:10px;height:10px;border-radius:50%;background:var(--prog-track);display:inline-block"></span>Libre ${Math.round(Math.max(0,100-pct))}%</span>
+    </div>`:''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
       <div style="background:${cat.col}18;border:1px solid ${cat.col}33;border-radius:12px;padding:12px;text-align:center">
         <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Gastado</div>
@@ -2239,9 +2314,9 @@ function renderCatDetail(){
       ${pre>0?`<div style="background:var(--card);border:1px solid var(--card-b);border-radius:12px;padding:12px;text-align:center"><div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Presupuesto</div><div style="font-size:20px;font-weight:800;font-variant-numeric:tabular-nums">${fmt(pre)}</div></div>`:`<div style="background:var(--card);border:1px solid var(--card-b);border-radius:12px;padding:12px;text-align:center"><div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Transacciones</div><div style="font-size:20px;font-weight:800">${txlist.length}</div></div>`}
     </div>
     ${pre>0?`<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:5px"><span>Uso del presupuesto</span><span style="color:${pct>=100?'var(--red)':'var(--text)'};font-weight:700">${Math.round(pct)}%</span></div><div style="height:7px;border-radius:4px;background:var(--prog-track)"><div style="height:100%;width:${pct}%;background:${pct>=100?'var(--red)':cat.col};border-radius:4px;transition:width .3s"></div></div></div>`:''}
-    ${days.length>0?`<div style="background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:14px;margin-bottom:14px"><div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:10px">Gastos por día</div><div style="display:flex;align-items:flex-end;gap:3px;height:60px">${days.map(([d,v])=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px"><div title="${fmt(v)}" style="width:100%;background:${cat.col};border-radius:3px 3px 0 0;height:${Math.max(4,Math.round(v/maxDay*52))}px"></div><div style="font-size:9px;color:var(--text3)">${d.slice(8)}</div></div>`).join('')}</div></div>`:''}
-    <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">${txlist.length} transacción${txlist.length!==1?'es':''}</div>
-    ${txlist.length===0?`<div style="text-align:center;padding:20px;color:var(--text2)">Sin gastos en esta categoría</div>`:txlist.map(t=>rTxItem(t,false)).join('')}
+    ${days.length>0?`<div style="background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:14px;margin-bottom:14px"><div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:10px">Gastos por d&iacute;a</div><div style="display:flex;align-items:flex-end;gap:3px;height:60px">${days.map(([d,v])=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px"><div title="${fmt(v)}" style="width:100%;background:${cat.col};border-radius:3px 3px 0 0;height:${Math.max(4,Math.round(v/maxDay*52))}px"></div><div style="font-size:9px;color:var(--text3)">${d.slice(8)}</div></div>`).join('')}</div></div>`:''}
+    <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">${txlist.length} transacci&oacute;n${txlist.length!==1?'es':''}</div>
+    ${txlist.length===0?`<div style="text-align:center;padding:20px;color:var(--text2)">Sin gastos en esta categor&iacute;a</div>`:txlist.map(t=>rTxItem(t,false)).join('')}
   `;
 }
 
