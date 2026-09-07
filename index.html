@@ -840,12 +840,48 @@ function detailRegla(){
 }
 function detailCuentas(){
   const ctas=(S.cuentas||[]).filter(c=>(c.tipo||'cuenta')==='cuenta');
-  const tot=ctas.reduce((s,c)=>s+(+c.saldo||0),0);
+  const efBal=+(S.config.efectivoBal||0);
+  const tot=ctas.reduce((s,c)=>s+(+c.saldo||0),0)+efBal;
   openDetail(`
     <div class="detail-ttl">🏦 Mis Cuentas</div>
-    <div class="detail-sub">Saldo actual en tus cuentas bancarias. Actualiza el saldo en Configuración &#x2192; Cuentas.</div>
+    <div class="detail-sub">Toca una cuenta para ver sus movimientos del mes.</div>
     <div class="detail-section"><div class="detail-section-ttl">Total disponible</div><div style="font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;color:${tot>=0?'var(--green)':'var(--red)'}">${fmt(tot)}</div></div>
-    ${ctas.map(c=>`<div class="detail-section" style="padding:10px 14px"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:14px;font-weight:600">${esc(c.n)}${c.gmf?' <span style="font-size:11px;color:var(--orange)">4&times;1000</span>':''}</div><div style="font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--green)">${fmt(+c.saldo||0)}</div></div></div>`).join('')}`);
+    ${ctas.map(c=>`<div class="detail-section" style="padding:10px 14px;cursor:pointer;transition:background .15s;border-radius:12px" onclick="openCuentaDetail('${c.id}')" onmouseenter="this.style.background='var(--chip-bg)'" onmouseleave="this.style.background=''"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:14px;font-weight:600">${esc(c.n)}${c.gmf?' <span style="font-size:11px;color:var(--orange)">4&times;1000</span>':''}</div><div style="display:flex;align-items:center;gap:6px"><div style="font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--green)">${fmt(+c.saldo||0)}</div><span style="color:var(--text3);font-size:13px">&#x203A;</span></div></div></div>`).join('')}
+    ${efBal>0?`<div class="detail-section" style="padding:10px 14px;cursor:pointer;transition:background .15s;border-radius:12px" onclick="openCuentaDetail('__efectivo__')" onmouseenter="this.style.background='var(--chip-bg)'" onmouseleave="this.style.background=''"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:14px;font-weight:600">💵 Efectivo</div><div style="display:flex;align-items:center;gap:6px"><div style="font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--green)">${fmt(efBal)}</div><span style="color:var(--text3);font-size:13px">&#x203A;</span></div></div></div>`:''}
+  `);
+}
+
+function openCuentaDetail(cid){
+  const c=(S.cuentas||[]).find(ct=>ct.id===cid);
+  const isEfectivo=(cid==='__efectivo__');
+  const nombre=isEfectivo?'💵 Efectivo':(c?esc(c.n):'Cuenta');
+  const saldo=isEfectivo?(+S.config.efectivoBal||0):(+(c?.saldo)||0);
+  const allTx=txns().slice();
+  const cTxns=isEfectivo
+    ? allTx.filter(t=>!t.cuentaId&&t.cuentaId!==undefined?false:(t.cuentaId===''||t.cuentaId==null||t.cuentaId===undefined))
+    : allTx.filter(t=>t.cuentaId===cid);
+  cTxns.sort((a,b)=>b.dt.localeCompare(a.dt));
+  const totalIn=cTxns.filter(t=>t.tp==='Ingreso').reduce((s,t)=>s+t.mo,0);
+  const totalOut=cTxns.filter(t=>t.tp==='Gasto').reduce((s,t)=>s+t.mo,0);
+  openDetail(`
+    <button onclick="closeDetail();detailCuentas()" style="display:flex;align-items:center;gap:5px;border:none;background:none;color:var(--text2);font-size:14px;font-weight:600;cursor:pointer;padding:0;margin-bottom:14px">&#x2190; Mis Cuentas</button>
+    <div class="detail-ttl">${nombre}</div>
+    <div style="font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;color:${saldo>=0?'var(--green)':'var(--red)'};margin-bottom:16px">${fmt(saldo)} <span style="font-size:13px;font-weight:500;color:var(--text2)">saldo actual</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+      <div style="background:rgba(48,209,88,.1);border:1px solid rgba(48,209,88,.3);border-radius:12px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Entradas</div>
+        <div style="font-size:16px;font-weight:800;color:var(--green);font-variant-numeric:tabular-nums">${fmt(totalIn)}</div>
+      </div>
+      <div style="background:rgba(255,69,58,.1);border:1px solid rgba(255,69,58,.3);border-radius:12px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Salidas</div>
+        <div style="font-size:16px;font-weight:800;color:var(--red);font-variant-numeric:tabular-nums">${fmt(totalOut)}</div>
+      </div>
+    </div>
+    <div class="detail-section-ttl" style="margin-bottom:10px">${cTxns.length} movimiento${cTxns.length!==1?'s':''} este mes</div>
+    ${cTxns.length===0
+      ?'<div style="text-align:center;padding:24px;color:var(--text2)">Sin movimientos registrados en esta cuenta este mes.</div>'
+      :cTxns.map(t=>rTxItem(t,false)).join('')}
+  `);
 }
 function detailTarjetas(){
   const tarjetas=(S.cuentas||[]).filter(c=>c.tipo==='tarjeta');
