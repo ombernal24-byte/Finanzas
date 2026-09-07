@@ -858,7 +858,7 @@ function openCuentaDetail(cid){
   const saldo=isEfectivo?(+S.config.efectivoBal||0):(+(c?.saldo)||0);
   const allTx=txns().slice();
   const cTxns=isEfectivo
-    ? allTx.filter(t=>!t.cuentaId&&t.cuentaId!==undefined?false:(t.cuentaId===''||t.cuentaId==null||t.cuentaId===undefined))
+    ? allTx.filter(t=>t.cuentaId===''||t.cuentaId==null||t.cuentaId===undefined)
     : allTx.filter(t=>t.cuentaId===cid);
   cTxns.sort((a,b)=>b.dt.localeCompare(a.dt));
   const totalIn=cTxns.filter(t=>t.tp==='Ingreso').reduce((s,t)=>s+t.mo,0);
