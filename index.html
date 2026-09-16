@@ -622,7 +622,10 @@ function dispQ(q){
   const deudas=S.config.deudas.filter(x=>(x.q||'q1')===q).reduce((s,x)=>s+(+x.c||0),0);
   return ing-fijos-deudas;
 }
-function dispReal(){return totIng()+totIngTx()-totFijo()-totCuota();}
+// ingExtra = ingresos adicionales al salario configurado (freelance, bonos, etc.)
+// En modo quincenas, la nómina ya está en totIng(), así que solo sumamos lo que NO es auto-nómina
+function ingExtra(){return txns().filter(t=>t.tp==='Ingreso'&&!t.autoNomina).reduce((s,t)=>s+t.mo,0);}
+function dispReal(){return totIng()+ingExtra()-totFijo()-totCuota();}
 function totPre(){return Object.values(S.config.presup).reduce((s,v)=>s+(+v||0),0);}
 function porAsig(){return dispReal()-totPre();}
 function draftDispReal(){const q=cfgDraft?.quincenas;const ing=q?.activo?(+(q.q1)||0)+(+(q.q2)||0):(cfgDraft?.ingresos||[]).reduce((s,x)=>s+(+x.m||0),0);const fij=(cfgDraft?.gastosFijos||[]).reduce((s,x)=>s+(+x.m||0),0);const deu=(cfgDraft?.deudas||[]).reduce((s,x)=>s+(+x.c||0),0);return ing+totIngTx()-fij-deu;}
@@ -889,7 +892,7 @@ function detailDeuda(){
     <div class="detail-section"><div class="detail-section-ttl">💡 Consejo</div><div style="font-size:13px;color:var(--text2);line-height:1.6">Un abono extraordinario reduce el capital directamente y puede ahorrarte meses de intereses. Puedes registrarlo tocando la deuda en inicio.</div></div>`);
 }
 function detailRegla(){
-  const ing=totIng()+totIngTx();
+  const ing=totIng()+ingExtra(); // totIng()=salario configurado, ingExtra()=solo ingresos extras no-nómina
   const gastos=txns().filter(t=>t.tp==='Gasto').reduce((s,t)=>s+t.mo,0)+totFijo();
   const nPct=ing>0?Math.round(gastos/ing*100):0;
   openDetail(`
@@ -1037,11 +1040,26 @@ function renderSoloTarjetas(){
 
 // ── PAGOS DEL MES ──
 function curQ(){return currentQ();}
+// Para el checklist de pagos: desde el día 15 (cut1) ya muestra la Q2
+// para que el usuario pueda ver y planear los pagos de la segunda quincena
+function curQPagos(){
+  const d=new Date().getDate();
+  const {cut1,cut2}=qCutoffs();
+  if(d>=cut2)return'q1'; // fin de mes → resetea a Q1 del próximo ciclo
+  return d>=cut1?'q2':'q1'; // desde día 15 en adelante muestra Q2
+}
+function minDayPagos(){
+  const d=new Date().getDate();
+  const {cut1,cut2}=qCutoffs();
+  if(d>=cut2)return cut2;
+  if(d>=cut1)return cut1; // Q2 pagos cuentan desde día 15
+  return 1;
+}
 function pagosMes(){
   const items=[];
   const qOn=S.config.quincenas?.activo;
-  const q=curQ();
-  const minDay=qMinDay(); // en cut2 solo cuentan pagos desde ese día
+  const q=curQPagos(); // usa la función de pagos (Q2 visible desde día 15)
+  const minDay=minDayPagos();
   const isPaid=(fn)=>txns().some(t=>{
     const tDay=new Date(t.dt+'T00:00:00').getDate();
     return t.tp==='Gasto'&&tDay>=minDay&&fn(t);
@@ -1071,9 +1089,17 @@ function rPagosMes(){
   const total=items.length;
   const pct=total>0?Math.round(pagados/total*100):0;
   const qOn=S.config.quincenas?.activo;
-  const _today=new Date().getDate(),{cut2:_cut2}=qCutoffs();
+  const _today=new Date().getDate(),{cut1:_cut1,cut2:_cut2}=qCutoffs();
   const _esReset=qOn&&_today>=_cut2;
-  const qLabel=qOn?(_esReset?' <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(48,209,88,.18);color:var(--green)">Q1 próxima</span>':(curQ()==='q1'?' <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(10,132,255,.15);color:var(--blue)">1ª Q</span>':' <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(191,90,242,.15);color:var(--purple)">2ª Q</span>')):'';
+  const _anticipando=qOn&&!_esReset&&_today===_cut1; // es día 15, mostrando Q2 por adelantado
+  const _qShown=curQPagos();
+  const qLabel=qOn?(_esReset
+    ?' <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(48,209,88,.18);color:var(--green)">Q1 próxima</span>'
+    :(_qShown==='q2'
+      ?(_anticipando
+        ?' <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(255,149,0,.2);color:var(--orange)">2ª Q — próximos</span>'
+        :' <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(191,90,242,.15);color:var(--purple)">2ª Q</span>')
+      :' <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(10,132,255,.15);color:var(--blue)">1ª Q</span>')):'';
   return`<div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <div class="card-ttl" style="margin:0">☑️ Pagos del Mes${qLabel}</div>
@@ -2209,7 +2235,7 @@ function cfgDelRec(i){cfgDraft.recurrentes.splice(i,1);renderCfgBody();}
 
 // ─── SCORE DE SALUD FINANCIERA ────────────────────────────────────────────────
 function calcScore(){
-  const ing=totIng()+totIngTx();
+  const ing=totIng()+ingExtra();
   if(ing<=0)return{score:0,label:'Sin datos',color:'var(--text2)',detalles:[]};
   const detalles=[];
   const ratioDeuda=totCuota()/ing;
