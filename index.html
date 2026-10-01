@@ -1202,16 +1202,23 @@ function checkAutoNomina(){
     S.meses[cur].txns.push({id:'auto-nom-'+q+'-'+cur,desc:'💰 '+label,mo:income,dt:nomDate,tp:'Ingreso',cat:'ingreso',destino:'',cuentaId:nomId,cuotas:1,autoNomina:true,nominaQ:q});
     S.config.nominaLog[q+'-'+cur]=true;save();
   }
-  // Q1: se registra al inicio del mes, fechada en cut1+1 (día de pago Q1)
-  // Se registra desde el principio para que el usuario pueda verla y editarla
+  const d=today.getDate();
+  // Si estamos en Q1 y hay una Q2 registrada por error, la eliminamos
+  if(d<=cut1&&S.config.nominaLog['q2-'+cur]){
+    const idx=S.meses[cur].txns.findIndex(t=>t.autoNomina&&(t.nominaQ==='q2'||(!t.nominaQ&&new Date(t.dt+'T00:00:00').getDate()>cut1)));
+    if(idx>=0)S.meses[cur].txns.splice(idx,1);
+    delete S.config.nominaLog['q2-'+cur];
+    save();
+  }
+  // Q1: visible desde el día 1 hasta que pase cut1
   if(!S.config.nominaLog['q1-'+cur]){
     const inc=+(S.config.quincenas?.q1)||0;
     const exists=S.meses[cur].txns.some(t=>t.autoNomina&&(t.nominaQ==='q1'||(!t.nominaQ&&new Date(t.dt+'T00:00:00').getDate()<=cut1)));
     if(inc&&!exists)addNomina('q1',inc,'Nómina 1ª quincena',mkDt(cut1+1));
     else S.config.nominaLog['q1-'+cur]=true;
   }
-  // Q2: se registra al inicio del mes, fechada en cut2 (último hábil)
-  if(!S.config.nominaLog['q2-'+cur]){
+  // Q2: solo se registra cuando ya pasó cut1 (Q1 ya fue pagada)
+  if(d>cut1&&!S.config.nominaLog['q2-'+cur]){
     const inc=+(S.config.quincenas?.q2)||0;
     const exists=S.meses[cur].txns.some(t=>t.autoNomina&&(t.nominaQ==='q2'||(!t.nominaQ&&new Date(t.dt+'T00:00:00').getDate()>cut1)));
     if(inc&&!exists)addNomina('q2',inc,'Nómina 2ª quincena',mkDt(cut2));
