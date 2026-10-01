@@ -1193,26 +1193,25 @@ function checkAutoNomina(){
   if(!S.config.quincenas?.activo)return;
   const nomId=S.config.cuentaNomina||'';if(!nomId)return;
   const {cut1,cut2,lastDay}=qCutoffs();
-  const today=new Date(),d=today.getDate();
+  const today=new Date();
   const y=today.getFullYear(),mo=today.getMonth()+1;
   const cur=mk();if(!S.meses[cur])S.meses[cur]={txns:[]};
   if(!S.config.nominaLog)S.config.nominaLog={};
   function mkDt(day){return`${y}-${String(mo).padStart(2,'0')}-${String(Math.min(day,lastDay)).padStart(2,'0')}`;}
   function addNomina(q,income,label,nomDate){
     S.meses[cur].txns.push({id:'auto-nom-'+q+'-'+cur,desc:'💰 '+label,mo:income,dt:nomDate,tp:'Ingreso',cat:'ingreso',destino:'',cuentaId:nomId,cuotas:1,autoNomina:true,nominaQ:q});
-    const cIdx=(S.cuentas||[]).findIndex(c=>c.id===nomId);
-    if(cIdx>=0)S.cuentas[cIdx].saldo=Math.round((+S.cuentas[cIdx].saldo||0)+income);
     S.config.nominaLog[q+'-'+cur]=true;save();
   }
-  // Q1: se registra el día siguiente al corte (cut1+1) cuando ya pasó cut1
-  if(d>=cut1&&!S.config.nominaLog['q1-'+cur]){
+  // Q1: se registra al inicio del mes, fechada en cut1+1 (día de pago Q1)
+  // Se registra desde el principio para que el usuario pueda verla y editarla
+  if(!S.config.nominaLog['q1-'+cur]){
     const inc=+(S.config.quincenas?.q1)||0;
     const exists=S.meses[cur].txns.some(t=>t.autoNomina&&(t.nominaQ==='q1'||(!t.nominaQ&&new Date(t.dt+'T00:00:00').getDate()<=cut1)));
     if(inc&&!exists)addNomina('q1',inc,'Nómina 1ª quincena',mkDt(cut1+1));
     else S.config.nominaLog['q1-'+cur]=true;
   }
-  // Q2: se registra el día del corte final (cut2, último hábil del mes)
-  if(d>=cut2&&!S.config.nominaLog['q2-'+cur]){
+  // Q2: se registra al inicio del mes, fechada en cut2 (último hábil)
+  if(!S.config.nominaLog['q2-'+cur]){
     const inc=+(S.config.quincenas?.q2)||0;
     const exists=S.meses[cur].txns.some(t=>t.autoNomina&&(t.nominaQ==='q2'||(!t.nominaQ&&new Date(t.dt+'T00:00:00').getDate()>cut1)));
     if(inc&&!exists)addNomina('q2',inc,'Nómina 2ª quincena',mkDt(cut2));
