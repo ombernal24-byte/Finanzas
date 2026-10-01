@@ -598,8 +598,9 @@ function qCutoffs(){
 }
 function currentQ(){
   const d=new Date().getDate();
-  const {cut1,cut2}=qCutoffs();
-  if(d>=cut2)return'q1'; // día de pago Q2 = inicio del siguiente ciclo Q1
+  const {cut1}=qCutoffs();
+  // Q1 = días 1 a cut1, Q2 = días cut1+1 hasta fin de mes
+  // El reset a Q1 ocurre cuando cambia el mes (checkArchive), no en cut2
   return d<=cut1?'q1':'q2';
 }
 // Retorna el día mínimo desde el que cuentan pagos para la Q actual
@@ -610,14 +611,27 @@ function qMinDay(){
   return d>=cut2?cut2:1;
 }
 function totIng(){
-  if(S.config.quincenas?.activo)return(+S.config.quincenas.q1||0)+(+S.config.quincenas.q2||0);
-  return S.config.ingresos.reduce((s,i)=>s+(+i.m||0),0);
+  if(!S.config.quincenas?.activo)return S.config.ingresos.reduce((s,i)=>s+(+i.m||0),0);
+  // Si ya se registró la auto-nómina, usa el monto real (editable por el usuario)
+  // Si aún no llegó esa quincena, usa el valor configurado como estimado
+  const {cut1}=qCutoffs();
+  const noms=txns().filter(t=>t.autoNomina);
+  // Usa nominaQ si existe (nuevas), o por fecha como fallback (antiguas)
+  const q1Tx=noms.find(t=>t.nominaQ==='q1'||(!t.nominaQ&&new Date(t.dt+'T00:00:00').getDate()<=cut1));
+  const q2Tx=noms.find(t=>t.nominaQ==='q2'||(!t.nominaQ&&new Date(t.dt+'T00:00:00').getDate()>cut1));
+  const q1=q1Tx?q1Tx.mo:(+S.config.quincenas.q1||0);
+  const q2=q2Tx?q2Tx.mo:(+S.config.quincenas.q2||0);
+  return q1+q2;
 }
 function totFijo(){return S.config.gastosFijos.reduce((s,g)=>s+(+g.m||0),0);}
 function totCuota(){return S.config.deudas.reduce((s,d)=>s+(+d.c||0),0);}
 function dispQ(q){
   const qc=S.config.quincenas;if(!qc?.activo)return null;
-  const ing=+(qc[q]||0);
+  // Usa el monto real de la transacción si ya fue registrada (puede haber sido editada)
+  const {cut1}=qCutoffs();
+  const noms=txns().filter(t=>t.autoNomina);
+  const nomTx=noms.find(t=>t.nominaQ===q||(!t.nominaQ&&(q==='q1'?new Date(t.dt+'T00:00:00').getDate()<=cut1:new Date(t.dt+'T00:00:00').getDate()>cut1)));
+  const ing=nomTx?nomTx.mo:(+(qc[q])||0);
   const fijos=S.config.gastosFijos.filter(x=>(x.q||'q1')===q).reduce((s,x)=>s+(+x.m||0),0);
   const deudas=S.config.deudas.filter(x=>(x.q||'q1')===q).reduce((s,x)=>s+(+x.c||0),0);
   return ing-fijos-deudas;
@@ -652,13 +666,10 @@ function updatePreBar(){
 // Transacciones filtradas por quincena actual (cuando quincenas activo)
 function txnsQ(){
   if(!S.config.quincenas?.activo)return txns();
-  const {cut1,cut2,lastDay}=qCutoffs();
-  const q=curQ(),today=new Date().getDate();
-  let minDay,maxDay;
-  if(today>=cut2){minDay=cut2;maxDay=lastDay;}
-  else if(q==='q1'){minDay=1;maxDay=cut1;}
-  else{minDay=cut1+1;maxDay=cut2;}
-  return txns().filter(t=>{const d=new Date(t.dt+'T00:00:00').getDate();return d>=minDay&&d<=maxDay;});
+  const {cut1}=qCutoffs();
+  const q=curQ();
+  // Q1 = días 1..cut1, Q2 = días cut1+1..fin de mes
+  return txns().filter(t=>{const d=new Date(t.dt+'T00:00:00').getDate();return q==='q1'?d<=cut1:d>cut1;});
 }
 function gastoCat(k){return txns().filter(t=>t.tp==='Gasto'&&t.cat===k).reduce((s,t)=>s+t.mo,0);}
 function totGas(){return txnsQ().filter(t=>t.tp==='Gasto').reduce((s,t)=>s+t.mo,0);}
@@ -1181,22 +1192,32 @@ function confirmarPagoFijo(item){
 function checkAutoNomina(){
   if(!S.config.quincenas?.activo)return;
   const nomId=S.config.cuentaNomina||'';if(!nomId)return;
-  const {cut1,cut2}=qCutoffs();
+  const {cut1,cut2,lastDay}=qCutoffs();
   const today=new Date(),d=today.getDate();
-  const dateStr=today.toISOString().split('T')[0];
-  if(!S.config.nominaLog)S.config.nominaLog={};
-  if(S.config.nominaLog[dateStr])return; // ya procesado hoy
-  let income=0,label='';
-  if(d===cut1){income=+(S.config.quincenas?.q1)||0;label='Nómina 1ª quincena';}
-  else if(d>=cut2){income=+(S.config.quincenas?.q2)||0;label='Nómina 2ª quincena';}
-  if(!income)return;
+  const y=today.getFullYear(),mo=today.getMonth()+1;
   const cur=mk();if(!S.meses[cur])S.meses[cur]={txns:[]};
-  if(S.meses[cur].txns.some(t=>t.autoNomina&&t.dt===dateStr))return; // ya existe
-  S.meses[cur].txns.push({id:'auto-nom-'+dateStr,desc:'💰 '+label,mo:income,dt:dateStr,tp:'Ingreso',cat:'ingreso',destino:'',cuentaId:nomId,cuotas:1,autoNomina:true});
-  const cIdx=(S.cuentas||[]).findIndex(c=>c.id===nomId);
-  if(cIdx>=0)S.cuentas[cIdx].saldo=Math.round((+S.cuentas[cIdx].saldo||0)+income);
-  S.config.nominaLog[dateStr]=true;
-  save();
+  if(!S.config.nominaLog)S.config.nominaLog={};
+  function mkDt(day){return`${y}-${String(mo).padStart(2,'0')}-${String(Math.min(day,lastDay)).padStart(2,'0')}`;}
+  function addNomina(q,income,label,nomDate){
+    S.meses[cur].txns.push({id:'auto-nom-'+q+'-'+cur,desc:'💰 '+label,mo:income,dt:nomDate,tp:'Ingreso',cat:'ingreso',destino:'',cuentaId:nomId,cuotas:1,autoNomina:true,nominaQ:q});
+    const cIdx=(S.cuentas||[]).findIndex(c=>c.id===nomId);
+    if(cIdx>=0)S.cuentas[cIdx].saldo=Math.round((+S.cuentas[cIdx].saldo||0)+income);
+    S.config.nominaLog[q+'-'+cur]=true;save();
+  }
+  // Q1: se registra el día siguiente al corte (cut1+1) cuando ya pasó cut1
+  if(d>=cut1&&!S.config.nominaLog['q1-'+cur]){
+    const inc=+(S.config.quincenas?.q1)||0;
+    const exists=S.meses[cur].txns.some(t=>t.autoNomina&&(t.nominaQ==='q1'||(!t.nominaQ&&new Date(t.dt+'T00:00:00').getDate()<=cut1)));
+    if(inc&&!exists)addNomina('q1',inc,'Nómina 1ª quincena',mkDt(cut1+1));
+    else S.config.nominaLog['q1-'+cur]=true;
+  }
+  // Q2: se registra el día del corte final (cut2, último hábil del mes)
+  if(d>=cut2&&!S.config.nominaLog['q2-'+cur]){
+    const inc=+(S.config.quincenas?.q2)||0;
+    const exists=S.meses[cur].txns.some(t=>t.autoNomina&&(t.nominaQ==='q2'||(!t.nominaQ&&new Date(t.dt+'T00:00:00').getDate()>cut1)));
+    if(inc&&!exists)addNomina('q2',inc,'Nómina 2ª quincena',mkDt(cut2));
+    else S.config.nominaLog['q2-'+cur]=true;
+  }
 }
 
 function render(){
